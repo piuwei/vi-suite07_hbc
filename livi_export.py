@@ -117,8 +117,8 @@ def bmesh2mesh(scene, obmesh, o, frame, tmf, m_export, tri):
             gradfile += radpoints(o, ffaces, 0)
 
         if ftext:
-            mfile = os.path.join(svp['viparams']['newdir'], 'obj', '{}-{}.mesh'.format(o.name.replace(' ', '_'), frame))
-            ofile = os.path.join(svp['viparams']['newdir'], 'obj', '{}-{}.obj'.format(o.name.replace(' ', '_'), frame))
+            mfile = os.path.join(svp['viparams']['newdir'], 'obj', '{}-{}.mesh'.format(o.name.replace(' ', '_').replace('/', '_'), frame))
+            ofile = os.path.join(svp['viparams']['newdir'], 'obj', '{}-{}.obj'.format(o.name.replace(' ', '_').replace('/', '_'), frame))
 
             with open(ofile, 'w') as objfile:
                 objfile.write(otext + vtext + ftext)

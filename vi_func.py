@@ -1651,7 +1651,7 @@ def retrobjs(obs):
 
 def retobjs(otypes):
     scene = bpy.context.scene
-    validobs = [o for o in scene.objects if o.visible_get() and '/' not in o.name and o not in retrobjs(scene.objects)]
+    validobs = [o for o in scene.objects if o.visible_get() and o not in retrobjs(scene.objects)]
 
     for o in scene.objects:
         if '/' in o.name:
