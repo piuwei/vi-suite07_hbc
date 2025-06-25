@@ -1084,6 +1084,9 @@ class No_Li_Im(Node, ViNodes):
             self['viewparams'][sf]['-vp'] = '{0[0]:.3f} {0[1]:.3f} {0[2]:.3f}'.format(cam.location)
             self['viewparams'][sf]['-vu'] = '{0[0]:.3f} {0[1]:.3f} {0[2]:.3f}'.format(cam.matrix_world.to_quaternion() @ mathutils.Vector((0, 1, 0)))
 
+            self['viewparams'][sf]['-vo'] = '{:.3f}'.format(cam.data.clip_start)
+            self['viewparams'][sf]['-va'] = '{:.3f}'.format(cam.data.clip_end)
+
             if self.illu:
                 self['viewparams'][sf]['-i'] = ''
 
