@@ -17,6 +17,8 @@ git checkout hbc_downstream
 git merge master
 ```
 
+dann Konflikte lösen...
+
 
 ### Dependencies für VI-Suite installieren
 

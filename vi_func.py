@@ -1655,7 +1655,9 @@ def retobjs(otypes):
 
     for o in scene.objects:
         if '/' in o.name:
-            logentry('Object {} has a "/" in the name and will not be exported'.format(o.name))
+            #"/" gets replaced with "_" on livi export (bmesh2mesh)
+            # logentry('Object {} has a "/" in the name and will not be exported'.format(o.name)) # why?
+            pass
         if o not in validobs and o.vi_params.vi_type_string != "LiVi Res":
             o.vi_params.vi_type_string = ''
 
