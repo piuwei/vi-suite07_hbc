@@ -6749,7 +6749,7 @@ class No_En_Net_EMSPy(Node, EnViNodes):
             pysparams = ('Name', 'Add Current Working Directory to Search Path', 'Add Input File Directory to Search Path', 'Search Path N')
             pysparamvs = ('Module_search_path', 'No', 'Yes', '')
             pyparams = ('Name', 'Run During Warmup Days', 'Python Module Name', 'Plugin Class Name')
-            pyparamvs = ('Python_module', 'Yes', self.py_mod, self.py_class)
+            pyparamvs = ('Python_module', 'Yes', self.py_mod.replace('.py', ''), self.py_class)
             return epentry('PythonPlugin:SearchPaths', pysparams, pysparamvs) + epentry('PythonPlugin:Instance', pyparams, pyparamvs)
         else:
             return ''
