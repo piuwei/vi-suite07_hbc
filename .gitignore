@@ -1,2 +1,12 @@
 __pycache__/
 .DS_Store
+
+# zipped distribution for blender
+vi-suit*hbc*.zip
+
+# unzipped folder
+vi-suite07_hbc*/
+
+.gitattributes
+
+vi*.pdf
