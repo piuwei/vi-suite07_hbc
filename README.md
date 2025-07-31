@@ -39,12 +39,39 @@ sudo apt install python3.11-dev
 ```
 
 ```sh
-pip install matplotlib kivy openimageio pyside6 scipy --target='/home/pius/.config/blender/4.4/scripts/modules'
-pip install pyroomacoustics --target='/home/pius/.config/blender/4.4/scripts/modules'
-pip install numpy==1.26.4 --target='/home/pius/.config/blender/4.4/scripts/modules'
+python3.11 -m pip install matplotlib kivy openimageio pyside6 scipy --target='~/.config/blender/4.4/scripts/modules'
+python3.11 -m pip install pyroomacoustics --target='~/.config/blender/4.4/scripts/modules'
+python3.11 -m pip install numpy==1.26.4 --target='~/.config/blender/4.4/scripts/modules'
 ```
 
 für numpy.core.multiarray nötig: numpy==1.26.4
+
+### Windows ohne Privilegien
+
+```cmd
+set BLENDER_VERSION=4.4
+set BLENDER_FULL_VERSION=4.4.3
+set BLENDER_ZIP_NAME=blender-%BLENDER_FULL_VERSION%-windows-x64.zip
+set BLENDER_FOLDER_NAME=blender-%BLENDER_FULL_VERSION%-windows-x64
+
+set TARGET_ROOT_PATH=%USERPROFILE%\Documents
+set BLENDER_DOWNLOAD_URL=https://download.blender.org/release/Blender%BLENDER_VERSION%/%BLENDER_ZIP_NAME%
+set BLENDER_INSTALL_PATH=%TARGET_ROOT_PATH%\%BLENDER_FOLDER_NAME%
+
+set BLENDER_PYTHON_EXE=%BLENDER_INSTALL_PATH%\%BLENDER_VERSION%\python\bin\python.exe
+%BLENDER_PYTHON_EXE% -m pip config --global set global.trusted-host "pypi.org files.pythonhosted.org"
+%BLENDER_PYTHON_EXE% -m pip install --upgrade pip
+%BLENDER_PYTHON_EXE% -m pip install matplotlib kivy openimageio pyside6 pyroomacoustics scipy --target=%MODULE_TARGET_PATH%
+```
+
+### OpenSuse
+
+auf compute2 durchgeführt, 06/2025 mit neuer visuite Version (python3.13, nicht mehr 3.11):
+
+```sh
+zypper install python313-matplotlib python313-imageio python313-scipy python313-pyroomacoustics python313-pyside6
+python3.13 -m pip install OpenImageIO --break-system-packages
+```
 
 ## TODO
 
