@@ -1256,12 +1256,41 @@ class NODE_OT_Li_Pre(bpy.types.Operator, ExportHelper):
 
                     gpmbm.free()
 
-                rvucmd = 'rvu -w {11} {12} {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vu {10[0]:.3f} {10[1]:.3f} {10[2]:.3f} {5} "{6}-{7}.oct"'.format(svp['viparams']['wnproc'], vv, cang, vd, cam.location, self.simnode['rvuparams'], svp['viparams']['filebase'], scene.frame_current, '{}-{}.gpm'.format(svp['viparams']['filebase'], frame),
-                cpfileentry, cam.matrix_world.to_quaternion() @ mathutils.Vector((0, 1, 0)), ('', '-i')[self.simnode.illu], gpfileentry)
+                rvucmd = 'rvu -w {11} {12} {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vo {13:.3f} -va {14:.3f} -vu {10[0]:.3f} {10[1]:.3f} {10[2]:.3f} {5} "{6}-{7}.oct"'.format(
+                    svp["viparams"]["wnproc"],
+                    vv,
+                    cang,
+                    vd,
+                    cam.location,
+                    self.simnode["rvuparams"],
+                    svp["viparams"]["filebase"],
+                    scene.frame_current,
+                    "{}-{}.gpm".format(svp["viparams"]["filebase"], frame),
+                    cpfileentry,
+                    cam.matrix_world.to_quaternion()
+                    @ mathutils.Vector((0, 1, 0)),
+                    ("", "-i")[self.simnode.illu],
+                    gpfileentry,
+                    cam.data.clip_start,
+                    cam.data.clip_end
+                )
 
             else:
-                rvucmd = 'rvu -w {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vu {8[0]:.3f} {8[1]:.3f} {8[2]:.3f} {5} "{6}-{7}.oct"'.format(svp['viparams']['wnproc'],
-                                 vv, cang, vd, cam.location, self.simnode['rvuparams'], svp['viparams']['filebase'], scene.frame_current, cam.matrix_world.to_quaternion() @ mathutils.Vector((0, 1, 0)), ('', '-i')[self.simnode.illu])
+                rvucmd = 'rvu -w {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vo {10:.3f} -va {11:.3f} -vu {8[0]:.3f} {8[1]:.3f} {8[2]:.3f} {5} "{6}-{7}.oct"'.format(
+                    svp["viparams"]["wnproc"],
+                    vv,
+                    cang,
+                    vd,
+                    cam.location,
+                    self.simnode["rvuparams"],
+                    svp["viparams"]["filebase"],
+                    scene.frame_current,
+                    cam.matrix_world.to_quaternion()
+                    @ mathutils.Vector((0, 1, 0)),
+                    ("", "-i")[self.simnode.illu],
+                    cam.data.clip_start,
+                    cam.data.clip_end
+                )
 
             logentry('Rvu command: {}'.format(rvucmd))
             self.rvurun = Popen(shlex.split(rvucmd), stdout=PIPE, stderr=PIPE)
