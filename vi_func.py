@@ -17,8 +17,9 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, os, sys, inspect, multiprocessing, mathutils, bmesh, datetime, colorsys, blf, bpy_extras, math
+from bpy_extras import mesh_utils
 from subprocess import Popen
-from numpy import array, digitize, amax, amin, average, clip, char, int8, int16, frombuffer, uint8, multiply, float32
+from numpy import array, digitize, amax, amin, average, clip, char, int8, int16, frombuffer, uint8, multiply, float32, zeros
 from math import sin, cos, asin, acos, pi, ceil, log10
 from math import e as expo
 from mathutils import Vector, Matrix
@@ -29,6 +30,19 @@ checked_groups_names_list = []
 materials_from_group = set()
 dtdf = datetime.date.fromordinal
 
+try:
+    from netgen import occ
+    from netgen.meshing import MeshingStep
+    ng = 1
+except Exception:
+    ng = 0
+
+
+def sys_exe():
+    if os.path.isfile(sys.executable):
+        return sys.executable
+    else:
+        return os.path.join(os.path.expanduser('~'), os.path.relpath(sys.executable))
 
 def li_calcob(ob, li):
     ovp = ob.vi_params
@@ -75,12 +89,18 @@ def ret_datab(fname, r_w):
         else:
             datab = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'EPFiles', fname)
 
+    elif db and os.path.isfile(os.path.join(db, fname)):
+        datab = os.path.join(db, fname)
+        logentry('No database directory set but the scene has one built-in. Using the scene directory')
+
     elif db == os.path.join(addonfolder, 'EPFiles', fname):
         datab = db
+        logentry('No database directory set. Using the built-in database')
 
     else:
         datab = os.path.join(addonfolder, 'EPFiles', fname)
-        logentry('No database directory set but the scene has one built-in. Using the scene directory')
+        logentry('No database directory set. Using the built-in database')
+
 
     return datab
 
@@ -162,18 +182,24 @@ def clear_coll(c, coll):
             bpy.data.objects.remove(o)
 
 
+def rm_coll(c, colls):
+    for coll in colls:
+        for obj in coll.objects:
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+        bpy.data.collections.remove(coll)
+
+
 def ret_coll_bb(coll):
-    minx, miny, minz, maxx, maxy, maxz = 0, 0, 0, 0, 0, 0
-    
     for oi, ob in enumerate(coll.objects):
         if ob.type == 'MESH':
-            gbbs = [ob.matrix_world@Vector(bb) for bb in ob.bound_box]
+            gbbs = [ob.matrix_world@mathutils.Vector(bb) for bb in ob.bound_box]
             lbbs = list(zip(*gbbs))
 
             if not oi:
                 (minx, miny, minz) = [min(lbb) for lbb in lbbs]
                 (maxx, maxy, maxz) = [max(lbb) for lbb in lbbs]
-                
+
             else:
                 mins = [min(lbb) for lbb in lbbs]
                 maxs = [max(lbb) for lbb in lbbs]
@@ -184,7 +210,13 @@ def ret_coll_bb(coll):
                 maxy = maxs[1] if maxs[1] > maxy else maxy
                 maxz = maxs[2] if maxs[2] > maxz else maxz
 
-    return (minx, miny, minz, maxx, maxy, maxz)
+    minx, miny, minz, maxx, maxy, maxz = minx - 0.1, miny - 0.1, minz - 0.1, maxx + 0.1, maxy + 0.1, maxz + 0.1
+    bb_mesh = bpy.data.meshes.new("bb_mesh")
+    bb_v_cos = [[minx, miny, minz], [maxx, miny, minz], [maxx, maxy, minz], [minx, maxy, minz],
+                [minx, miny, maxz], [maxx, miny, maxz], [maxx, maxy, maxz], [minx, maxy, maxz]]
+    bb_f_is = [[0, 3, 2, 1], [0, 1, 5, 4], [0, 4, 7, 3], [2, 3, 7, 6], [1, 2, 6, 5], [4, 5, 6, 7]]
+    bb_mesh.from_pydata(bb_v_cos, [], bb_f_is)
+    return bb_mesh
 
 
 CIE_X = (1.299000e-04, 2.321000e-04, 4.149000e-04, 7.416000e-04, 1.368000e-03,
@@ -414,7 +446,7 @@ def rettree(scene, obs, ignore):
 
 
 def ret_empty_menu(self, context):
-    e_names = [(o.name, o.name, 'Name of empty') for o in bpy.data.objects if o.type == 'EMPTY']
+    e_names = [(o.name, o.name, 'Name of empty') for o in context.view_layer.objects if o.type == 'EMPTY']
 
     if not e_names:
         e_names = [('None', 'None', 'None')]
@@ -474,7 +506,7 @@ class fvprogressfile():
 
 
 def qtprogressbar(file, pdll_path, calctype):
-    addon_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    #addon_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     qttext = "# -*- coding: " + sys.getfilesystemencoding() + " -*-\n\
 import os, sys\n\
 if sys.platform == 'win32':\n\
@@ -548,7 +580,7 @@ QApplication.shutdown(app)"
 
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys.executable, file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"])
 
 
 def progressbar(file, calctype):
@@ -606,7 +638,7 @@ if __name__ == '__main__':\n\
 
     with open(file + ".py", 'w') as kivyfile:
         kivyfile.write(kivytext)
-    return Popen([sys.executable, file + ".py"])
+    return Popen([sys_exe(), file + ".py"])
 
 
 def cancel_window(file, pdll_path, calc_type):
@@ -646,11 +678,11 @@ QApplication.shutdown(app)".format(calc_type)
 
     with open(file + ".py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys.executable, file + ".py"])
+    return Popen([sys_exe(), file + ".py"])
 
 
 def qtfvprogress(file, pdll_path, et, residuals, frame):
-    addonpath = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    #addonpath = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     qttext = "# -*- coding: " + sys.getfilesystemencoding() + " -*-\n\
 import os, sys\n\
 if sys.platform == 'win32':\n\
@@ -664,7 +696,7 @@ class MainWindow(QMainWindow):\n\
         super().__init__()\n\
         self.rpbs = []\n\
         self.nums = []\n\
-        self.setWindowTitle('OpenFOAM Residuals')\n\
+        self.setWindowTitle('OpenFOAM " + str(frame) + " Residuals')\n\
         self.setFixedWidth(370)\n\
         self.btn = QPushButton('Cancel')\n\
         self.btn.pressed.connect(self.stop_process)\n\
@@ -745,7 +777,7 @@ QApplication.shutdown(app)"
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
 
-    return Popen([sys.executable, file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"])
 
 
 def logentry(text):
@@ -859,86 +891,86 @@ def lividisplay(self, scene):
                         lms[fi].keyframe_points[f].co = frame, nmatis[fii]
 
 
-def lividisplay(self, scene):
-    svp = scene.vi_params
-    svp.vi_view_update = 1
-    anim_name = "LiVi {} MI".format(self.name)
-    disp_menu = svp.li_disp_menu
-    params = 'liparams'
-    type_strings = ('LiVi Res', 'LiVi_Calc')
-
-    if self.id_data.vi_params.vi_type_string == type_strings[0]:
-        frames = range(svp[params]['fs'], svp[params]['fe'] + 1)
-        ll = svp.vi_leg_levels
-        increment = 1 / ll
-
-        if len(frames) > 1:
-            if not self.id_data.data.animation_data:
-                self.id_data.data.animation_data_create()
-
-            self.id_data.data.animation_data.action = bpy.data.actions.new(name=anim_name)
-            fis = [str(face.index) for face in self.id_data.data.polygons]
-            lms = {fi: self.id_data.data.animation_data.action.fcurves.new(data_path='polygons[{}].material_index'.format(fi)) for fi in fis}
-
-            for fi in fis:
-                lms[fi].keyframe_points.add(len(frames))
-
-        for f, frame in enumerate(frames):
-            bm = bmesh.new()
-            bm.from_mesh(self.id_data.data)
-            geom = bm.verts if svp[params]['cp'] == '1' else bm.faces
-            sf = str(frame)
-
-            if disp_menu == 'aga1v':
-                res_name = f'aga{svp.vi_views}v{frame}'
-            elif disp_menu == 'ago1v':
-                res_name = f'ago{svp.vi_views}v{frame}'
-            elif disp_menu == 'rt':
-                res_name = f'{svp.au_sources}_rt{frame}'
-            else:
-                res_name = f'{disp_menu}{frame}'
-
-            if geom.layers.float.get(res_name):
-                vires = geom.layers.float[res_name]
-                res = geom.layers.float[res_name]
-                oreslist = [g[vires] for g in geom]
-                self['omax'][sf], self['omin'][sf], self['oave'][sf] = max(oreslist), min(oreslist), sum(oreslist) / len(oreslist)
-
-                if svp.vi_res_process == '2' and svp.script_file:
-                    try:
-                        vals = ret_res_vals(svp, array([f[vires] for f in bm.faces])) if svp[params]['cp'] == '0' else ret_res_vals(svp, array([(sum([vert[vires] for vert in f.verts])) / len(f.verts) for f in bm.faces]))
-                        nmatis = array(vals).astype(int8)
-                    except Exception:
-                        nmatis = zeros(len(bm.faces))
-
-                else:
-                    smaxres, sminres = ret_res_vals(svp, [max(svp[params]['maxres'].values()), min(svp[params]['minres'].values())])[:2]
-
-                    if smaxres > sminres:
-                        vals = (array(ret_res_vals(svp, array([f[vires] for f in bm.faces]))) - sminres) / (smaxres - sminres) if svp[params]['cp'] == '0' else \
-                            (array(ret_res_vals(svp, array([(sum([vert[vires] for vert in f.verts])) / len(f.verts) for f in bm.faces]))) - sminres) / (smaxres - sminres)
-                    else:
-                        vals = array(ret_res_vals(svp, array([max(svp[params]['maxres'].values()) for x in range(len(bm.faces))])))
-
-                    if vires != res:
-                        for g in geom:
-                            g[res] = g[vires]
-
-                    if svp[params]['unit'] == 'SVF (%)X':
-                        nmatis = [(0, ll - 1)[v == 1] for v in vals]
-                    else:
-                        bins = array([increment * i for i in range(ll)])
-                        nmatis = clip(digitize(vals, bins, right=True) - 1, 0, ll - 1, out=None)
-
-                bm.to_mesh(self.id_data.data)
-                bm.free()
-
-                if len(frames) == 1:
-                    self.id_data.data.polygons.foreach_set('material_index', nmatis)
-
-                elif len(frames) > 1:
-                    for fii, fi in enumerate(fis):
-                        lms[fi].keyframe_points[f].co = frame, nmatis[fii]
+# def lividisplay(self, scene):
+#     svp = scene.vi_params
+#     svp.vi_view_update = 1
+#     anim_name = "LiVi {} MI".format(self.name)
+#     disp_menu = svp.li_disp_menu
+#     params = 'liparams'
+#     type_strings = ('LiVi Res', 'LiVi_Calc')
+#
+#     if self.id_data.vi_params.vi_type_string == type_strings[0]:
+#         frames = range(svp[params]['fs'], svp[params]['fe'] + 1)
+#         ll = svp.vi_leg_levels
+#         increment = 1 / ll
+#
+#         if len(frames) > 1:
+#             if not self.id_data.data.animation_data:
+#                 self.id_data.data.animation_data_create()
+#
+#             self.id_data.data.animation_data.action = bpy.data.actions.new(name=anim_name)
+#             fis = [str(face.index) for face in self.id_data.data.polygons]
+#             lms = {fi: self.id_data.data.animation_data.action.fcurves.new(data_path='polygons[{}].material_index'.format(fi)) for fi in fis}
+#
+#             for fi in fis:
+#                 lms[fi].keyframe_points.add(len(frames))
+#
+#         for f, frame in enumerate(frames):
+#             bm = bmesh.new()
+#             bm.from_mesh(self.id_data.data)
+#             geom = bm.verts if svp[params]['cp'] == '1' else bm.faces
+#             sf = str(frame)
+#
+#             if disp_menu == 'aga1v':
+#                 res_name = f'aga{svp.vi_views}v{frame}'
+#             elif disp_menu == 'ago1v':
+#                 res_name = f'ago{svp.vi_views}v{frame}'
+#             elif disp_menu == 'rt':
+#                 res_name = f'{svp.au_sources}_rt{frame}'
+#             else:
+#                 res_name = f'{disp_menu}{frame}'
+#
+#             if geom.layers.float.get(res_name):
+#                 vires = geom.layers.float[res_name]
+#                 res = geom.layers.float[res_name]
+#                 oreslist = [g[vires] for g in geom]
+#                 self['omax'][sf], self['omin'][sf], self['oave'][sf] = max(oreslist), min(oreslist), sum(oreslist) / len(oreslist)
+#
+#                 if svp.vi_res_process == '2' and svp.script_file:
+#                     try:
+#                         vals = ret_res_vals(svp, array([f[vires] for f in bm.faces])) if svp[params]['cp'] == '0' else ret_res_vals(svp, array([(sum([vert[vires] for vert in f.verts])) / len(f.verts) for f in bm.faces]))
+#                         nmatis = array(vals).astype(int8)
+#                     except Exception:
+#                         nmatis = zeros(len(bm.faces))
+#
+#                 else:
+#                     smaxres, sminres = ret_res_vals(svp, [max(svp[params]['maxres'].values()), min(svp[params]['minres'].values())])[:2]
+#
+#                     if smaxres > sminres:
+#                         vals = (array(ret_res_vals(svp, array([f[vires] for f in bm.faces]))) - sminres) / (smaxres - sminres) if svp[params]['cp'] == '0' else \
+#                             (array(ret_res_vals(svp, array([(sum([vert[vires] for vert in f.verts])) / len(f.verts) for f in bm.faces]))) - sminres) / (smaxres - sminres)
+#                     else:
+#                         vals = array(ret_res_vals(svp, array([max(svp[params]['maxres'].values()) for x in range(len(bm.faces))])))
+#
+#                     if vires != res:
+#                         for g in geom:
+#                             g[res] = g[vires]
+#
+#                     if svp[params]['unit'] == 'SVF (%)X':
+#                         nmatis = [(0, ll - 1)[v == 1] for v in vals]
+#                     else:
+#                         bins = array([increment * i for i in range(ll)])
+#                         nmatis = clip(digitize(vals, bins, right=True) - 1, 0, ll - 1, out=None)
+#
+#                 bm.to_mesh(self.id_data.data)
+#                 bm.free()
+#
+#                 if len(frames) == 1:
+#                     self.id_data.data.polygons.foreach_set('material_index', nmatis)
+#
+#                 elif len(frames) > 1:
+#                     for fii, fi in enumerate(fis):
+#                         lms[fi].keyframe_points[f].co = frame, nmatis[fii]
 
 
 def ret_vp_loc(context):
@@ -955,9 +987,9 @@ def viparams(op, scene):
         op.report({'ERROR'}, "The Blender file has not been saved. Save the Blender file before exporting")
         return 'Save file'
 
-    isascii = lambda s: len(s) == len(s.encode())
+    #isascii = lambda s: len(s) == len(s.encode())
 
-    if not isascii(bdfp):
+    if len(bdfp) != len(bdfp.encode()):
         op.report({'WARNING'}, "The directory path or Blender filename has non-ascii characters in it. Photon mapping may not work")
 
     fd, fn = os.path.dirname(bpy.data.filepath), os.path.splitext(os.path.basename(bpy.data.filepath))[0]
@@ -1066,8 +1098,8 @@ def retobj(name, fr, node, scene):
 def retelaarea(node):
     inlinks = [sock.links[0] for sock in node.inputs if sock.bl_idname in ('So_En_Net_SSFlow', 'So_En_Net_SFlow') and sock.links]
     outlinks = [sock.links[:] for sock in node.outputs if sock.bl_idname in ('So_En_Net_SSFlow', 'So_En_Net_SFlow') and sock.links]
-    inosocks = [link.from_socket for link in inlinks if inlinks and link.from_socket.node.get('zone') and link.from_socket.node.zone in [o.name for o in bpy.data.objects]]
-    outosocks = [link.to_socket for x in outlinks for link in x if link.to_socket.node.get('zone') and link.to_socket.node.zone in [o.name for o in bpy.data.objects]]
+    inosocks = [link.from_socket for link in inlinks if inlinks and link.from_socket.node.get('zone') and link.from_socket.node.zone in [o.name for o in bpy.context.view_layer.objects]]
+    outosocks = [link.to_socket for x in outlinks for link in x if link.to_socket.node.get('zone') and link.to_socket.node.zone in [o.name for o in bpy.context.view_layer.objects]]
 
     if outosocks or inosocks:
         elaarea = max([facearea(bpy.data.objects[sock.node.zone], bpy.data.objects[sock.node.zone].data.polygons[int(sock.sn)]) for sock in outosocks + inosocks])
@@ -1407,16 +1439,13 @@ def compass(loc, scale, platmat, basemat, greymat):
     coo.material_slots[0].material = basemat
     coo.material_slots[1].material = platmat
     coo.material_slots[2].material = greymat
-
     return coo
-#    return joinobj(bpy.context.view_layer, txts + [coo] + [wro])
 
 
 def spathrange(mats):
     sprme = bpy.data.meshes.new("SPRange")
     spro = bpy.data.objects.new('SPRrange', sprme)
     bpy.context.scene.collection.objects.link(spro)
-#    bpy.context.view_layer.objects.link(spro)
     bpy.context.view_layer.objects.active = spro
     spro.location = (0, 0, 0)
     bm = bmesh.new()
@@ -1504,7 +1533,7 @@ def wind_compass(loc, scale, wro, mat):
     matrot = Matrix.Rotation(pi * 0.25, 4, 'Z')
     degmatrot = Matrix.Rotation(pi * 0.125, 4, 'Z')
     tmatrot = Matrix.Rotation(0, 4, 'Z')
-    direc = Vector((0, 1, 0))
+    direc = Vector((0, 1, 0)) 
 
     for i, edge in enumerate(bm.edges[-8:]):
         verts = bmesh.ops.extrude_edge_only(bm, edges=[edge], use_select_history=False)['geom'][:2]
@@ -1536,7 +1565,12 @@ def wind_compass(loc, scale, wro, mat):
 
     bm.to_mesh(come)
     bm.free()
-    return joinobj(bpy.context.view_layer, txts + [coo] + [wro])
+    wr_ob = joinobj(bpy.context.view_layer, txts + [coo] + [wro])
+
+    if bpy.context.scene.vi_params['viparams'].get('North') and bpy.context.scene.vi_params['viparams']['North'] != (0, 1, 0):
+        wr_ob.rotation_euler = Vector((0, 1, 0)).rotation_difference(Vector(bpy.context.scene.vi_params['viparams']['North'])).to_euler('XYZ')
+    
+    return wr_ob
 
 
 def rgb2h(rgb):
@@ -1598,6 +1632,7 @@ def xy2radial(c, pos, w, h):
 def bres(scene, o):
     bm = bmesh.new()
     bm.from_mesh(o.data)
+
     if scene['liparams']['cp'] == '1':
         rtlayer = bm.verts.layers.int['cindex']
         reslayer = bm.verts.layers.float['res{}'.format(scene.frame_current)]
@@ -1606,6 +1641,7 @@ def bres(scene, o):
         rtlayer = bm.faces.layers.int['cindex']
         reslayer = bm.faces.layers.float['res{}'.format(scene.frame_current)]
         res = [f[reslayer] for f in bm.faces if f[rtlayer] > 0]
+    
     bm.free()
     return res
 
@@ -1673,13 +1709,13 @@ def retobjs(otypes):
     elif otypes == 'livil':
         return [o for o in validobs if o.type == 'LIGHT' or o.vi_params.vi_type == '4']
     elif otypes == 'livic':
-        return [o for o in validobs if o.type == 'MESH' and o.data.polygons and li_calcob(o, 'livi') and o.vi_params.vi_type_string != 'LiVi Res']
+        return [o for o in validobs if o.type == 'MESH' and o.data.polygons and li_calcob(o, 'livi') and o.vi_params.vi_type_string != 'LiVi Res' and not o.modifiers[:]]
     elif otypes == 'livir':
         return [o for o in validobs if o.type == 'MESH' and o.data.polygons and True in [m.vi_params.livi_sense for m in o.data.materials] and o.vi_params.vi_type_string != 'LiVi Calc']
     elif otypes == 'envig':
         return [o for o in scene.objects if o.type == 'MESH' and o.hide is False]
     elif otypes == 'ssc':
-        return [o for o in validobs if o.type == 'MESH' and o.data.polygons and li_calcob(o, 'livi') and o.vi_params.vi_type_string != 'LiVi Res']
+        return [o for o in validobs if o.type == 'MESH' and o.data.polygons and li_calcob(o, 'livi') and o.vi_params.vi_type_string != 'LiVi Res' and not o.modifiers[:]]
     elif otypes == 'selected':
         return [o for o in [bpy.context.active_object] if o.type == 'MESH']
 
@@ -1759,7 +1795,13 @@ def retdp(mres, dp):
 def draw_index_distance(posis, res, fontsize, fontcol, shadcol, distances):
     if distances.size:
         try:
-            dp = 0 if max(res) > 100 else 2 - int(log10(max(res)))
+            if not max(res):
+                dp = 1
+            elif max(res) > 100:
+                dp = 0
+            else:
+                dp = 1 if max(res) > 10 else 2
+
             dpi = bpy.context.preferences.system.dpi
             nres = char.mod('%.{}f'.format(dp), res)
             fsdist = (fontsize / distances).astype(int16)
@@ -1835,6 +1877,11 @@ def sunpath(context):
     scene = context.scene
     svp = scene.vi_params
     suns = [ob for ob in scene.objects if ob.parent and ob.type == 'LIGHT' and ob.data.type == 'SUN' and ob.parent.get('VIType') == "SPathMesh"]
+
+    # if context.scene.vi_params['viparams'].get('North') and context.scene.vi_params['viparams'] != (0, 1, 0):
+    #     phi_mod = Vector((0, 1, 0)).rotation_difference(Vector(bpy.context.scene.vi_params['viparams']['North'])).to_euler('XYZ')[2]
+    # else:
+    #     phi_mod = 0
 
     if svp.get('spparams') and svp['spparams'].get('suns') and svp['spparams']['suns'] == '0':
         if suns:
@@ -1966,6 +2013,10 @@ def solarPosition(doy, lst, lat, lon):
     # Convert altitude and azimuth from radians to degrees, since the Spatial Analyst's Hillshade function inputs solar angles in degrees
     altitude = radToDeg * beta
     phi = 2 * pi - phi if ast <= 12 or ast >= 24 else phi
+
+    if bpy.context.scene.vi_params['viparams'].get('North'):
+        phi += Vector((0, 1)).angle_signed(bpy.context.scene.vi_params['viparams'].get('North')[:2])
+        
     azimuth = radToDeg * phi
     return ([altitude, azimuth, beta, phi])
 
@@ -1978,7 +2029,12 @@ def solarRiseSet(doy, beta, lat, lon, riseset):
 
     try:
         phi = acos((sin(beta) * sin(ll) - sin(delta)) / (cos(beta) * cos(ll)))
+
+        if bpy.context.scene.vi_params['viparams'].get('North'):
+            phi += Vector((0, 1)).angle_signed(bpy.context.scene.vi_params['viparams'].get('North')[:2])
+
         phi = pi - phi if riseset == 'morn' else pi + phi
+
     except Exception:
         phi = 0
 
@@ -2094,16 +2150,17 @@ def sockhide(node, lsocknames):
 def socklink(sock, ng):
     if ng in [g.name for g in bpy.data.node_groups]:
         try:
-            valid1 = sock.valid if not sock.get('valid') else sock['valid']
+            valid1 = sock.valid # if not sock.get('valid') else sock['valid']
 
             for link in sock.links:
-                valid2 = link.to_socket.valid if not link.to_socket.get('valid') else link.to_socket['valid']
+                valid2 = link.to_socket.valid # if not link.to_socket.get('valid') else link.to_socket['valid']
                 valset = set(valid1) & set(valid2)
 
                 if not valset or len(valset) < min((len(valid1), len(valid2))):
                     bpy.data.node_groups[ng].links.remove(link)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             if sock.links:
                 bpy.data.node_groups[ng].links.remove(sock.links[-1])
 
@@ -2195,6 +2252,7 @@ def sunposh(context, suns):
 
 
 def sunapply(scene, sun, values, solposs, frames, sdist):
+    print(solposs)
     sun.data.animation_data_clear()
     sun.animation_data_clear()
     action = bpy.data.actions.get("EnVi Sun")
@@ -2274,12 +2332,14 @@ def sunapply(scene, sun, values, solposs, frames, sdist):
         sunrot = [(pi / 2) - solposs[f][2], 0, -solposs[f][3]]
         scene.display.light_direction = (-sin(solposs[f][3]) * cos(solposs[f][2]), sin(solposs[f][2]), cos(solposs[f][3]) * cos(solposs[f][2]))
 
-        if scene.render.engine == 'CYCLES' and scene.world.node_tree:
+        if scene.world.node_tree:
             if 'Sky Texture' in [no.bl_label for no in scene.world.node_tree.nodes]:
                 skydir = -sin(solposs[f][3]), -cos(solposs[f][3]), sin(solposs[f][2])
                 st1x.keyframe_points[f].co = frame, skydir[0]
                 st1y.keyframe_points[f].co = frame, skydir[1]
                 st1z.keyframe_points[f].co = frame, skydir[2]
+                scene.world.node_tree.nodes["Sky Texture"].sun_elevation = solposs[f][2]
+                scene.world.node_tree.nodes["Sky Texture"].sun_rotation = solposs[f][3] - pi
 
         if scene.render.engine == 'CYCLES' and sun.data.node_tree:
             for emnode in emnodes:
@@ -2369,6 +2429,314 @@ def bm_to_stl(bm, stl_path):
 
     bm.free()
 
+
+def meshes_to_solids(context, coll, op):
+    dp = context.evaluated_depsgraph_get()
+    scene = context.scene
+    svp = scene.vi_params
+    c_geos = [ob for ob in coll.objects if ob.visible_get() and ob.type == "MESH"]
+    g_geos = []
+    g_names = []
+    fi = 1
+    bb_mesh = ret_coll_bb(coll)
+    bm = bmesh.new()
+    bm.from_mesh(bb_mesh)
+    lbm = len(bm.faces)
+    faces = []
+
+    for fi, face in enumerate(bm.faces[:lbm]):
+        edges = [occ.Segment(occ.gp_Pnt(tuple(loop.vert.co)), occ.gp_Pnt(tuple(loop.link_loop_next.vert.co))) for loop in face.loops]
+        wire = occ.Wire(edges)
+        f = occ.Face(wire)
+        f.name = None
+        faces.append(f)
+        fi += 1
+
+    bm.free()
+    d_geo = occ.OCCGeometry(occ.Compound(faces))
+    d_geo.Heal(tolerance=0.01)
+
+    for oi, ob in enumerate(c_geos):
+        fi = 0
+        faces = []
+        bm = bmesh.new()
+        bm.from_object(ob, dp)
+        # bm.from_mesh(ob.evaluated_get(dp).data)
+
+        if not all([e.is_manifold for e in bm.edges]):
+            op.report({'WARNING'}, f"Object {ob.name} is not manifold and will not be exported")
+            logentry(f"Object {ob.name} is not manifold and will not be exported")
+        else:
+            bmesh.ops.triangulate(bm, faces=bm.faces)
+            bm.transform(ob.matrix_world)
+            lbm = len(bm.faces)
+
+            for fi, face in enumerate(bm.faces[:lbm]):
+                edges = [occ.Segment(occ.gp_Pnt(tuple(round(co, 4) for co in loop.vert.co)), occ.gp_Pnt(tuple(round(co, 4) for co in loop.link_loop_next.vert.co))) for loop in face.loops]
+                wire = occ.Wire(edges)
+                f = occ.Face(wire)
+
+                if len(f.edges) > 2 and ob.material_slots and ob.material_slots[face.material_index].material:
+                    matname = ob.material_slots[face.material_index].material.name
+                    f.name = matname
+                    f.mat(matname)
+                    f.bc(matname)
+                    f.layer = oi
+
+                faces.append(f)
+                fi += 1
+
+            g_geo = occ.OCCGeometry(occ.Compound(faces))
+            fns = [face.name for face in g_geo.shape.faces]
+            fcs = [face.center for face in g_geo.shape.faces]
+            print(f'Healing {ob.name}')
+            g_geo.Heal(tolerance=0.001)
+
+            if None in set([face.name for face in g_geo.shape.faces]):
+                for fi, face in enumerate(g_geo.shape.faces):
+                    if face.name is None:
+                        for fci, fc in enumerate(fcs):
+                            if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+                                face.name = fns[fci]
+                                break
+                        if face.name is None:
+                            face.name = fns[fi]
+
+            g_geos.append(g_geo)
+            g_names.append(ob.name)
+
+        bm.free()
+
+    solids = []
+
+    for gi, g_geo in enumerate(g_geos):
+        used_shells = []
+        
+        if len(g_geo.shape.SubShapes(occ.SOLID)) == len(g_geo.shape.SubShapes(occ.SHELL)):
+            for g_geo_solid in g_geo.shape.SubShapes(occ.SOLID):
+                g_geo_solid.name = g_names[gi]
+                solids.append(g_geo_solid)
+                used_shells.append
+        
+        elif len(g_geo.shape.SubShapes(occ.SOLID)):
+            for g_geo_solid in g_geo.shape.SubShapes(occ.SOLID):
+                g_geo_solid.name = g_names[gi]
+                solids.append(g_geo_solid)
+
+                for shell in g_geo_solid.SubShapes(occ.SHELL):
+                    used_shells.append(shell)
+        # print('lens', len(g_geo.shape.SubShapes(occ.SHELL)))
+            if len(g_geo.shape.SubShapes(occ.SHELL)) > len(used_shells):
+                for g_shell in g_geo.shape.SubShapes(occ.SHELL):
+                    if g_shell not in used_shells:
+                        g_shell_solid = occ.OCCGeometry(g_shell)
+                        fns = [face.name for face in g_shell_solid.shape.faces]
+                        fcs = [face.center for face in g_shell_solid.shape.faces]
+                        g_shell_solid.Heal(tolerance=0.0001)
+
+                        if None in set([face.name for face in g_shell_solid.shape.faces]):
+                            for fi, face in enumerate(g_shell_solid.shape.faces):
+                                if face.name is None:
+                                    for fci, fc in enumerate(fcs):
+                                        if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+                                            face.name = fns[fci]
+                                            break
+                                    if face.name is None:
+                                        face.name = fns[fi]
+
+                        for gs, g_solid in enumerate(g_shell_solid.shape.SubShapes(occ.SOLID)):
+                            solids.append(g_solid)
+                            print('shell to solid', g_names[gi])
+
+                        if not g_shell_solid.shape.SubShapes(occ.SOLID):
+                            g_shell_solid.shape.WriteStep(os.path.join(svp['viparams']['newdir'], 'temp.step'))
+                            g_shell_solid = occ.OCCGeometry(os.path.join(svp['viparams']['newdir'], 'temp.step'))
+                            fns = [face.name for face in g_shell_solid.shape.faces]
+                            fcs = [face.center for face in g_shell_solid.shape.faces]
+                            g_shell_solid.Heal(tolerance=0.0001)
+
+                            if None in set([face.name for face in g_shell_solid.shape.faces]):
+                                for fi, face in enumerate(g_shell_solid.shape.faces):
+                                    if face.name is None:
+                                        for fci, fc in enumerate(fcs):
+                                            if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+                                                face.name = fns[fci]
+                                                break
+                                        if face.name is None:
+                                            face.name = fns[fi]
+
+                            for gs, g_solid in enumerate(g_shell_solid.shape.SubShapes(occ.SOLID)):
+                                solids.append(g_solid)
+
+        if not g_geo.shape.SubShapes(occ.SOLID):
+            ob = bpy.data.objects[g_names[gi]]
+            # mesh_islands = mesh_utils.mesh_linked_triangles(ob.evaluated_get(dp).data)
+            bm = bmesh.new()
+            bm.from_object(ob, dp)
+            bmesh.ops.triangulate(bm, faces=bm.faces)
+            bm.transform(ob.matrix_world)
+            bm.faces.ensure_lookup_table()
+            mesh = bpy.data.meshes.new(name='temp')
+            bm.to_mesh(mesh)
+            mesh_islands = mesh_utils.mesh_linked_triangles(mesh)
+
+            for mi in mesh_islands:
+                faces = []
+
+                for face in [bm.faces[fi.polygon_index] for fi in mi]:
+                    edges = [occ.Segment(occ.gp_Pnt(tuple(loop.vert.co)), occ.gp_Pnt(tuple(loop.link_loop_next.vert.co))) for loop in face.loops]
+                    wire = occ.Wire(edges)
+                    f = occ.Face(wire)
+
+                    if len(f.edges) > 2 and ob.material_slots and ob.material_slots[face.material_index].material:
+                        matname = ob.material_slots[face.material_index].material.name
+                        f.name = matname
+                        f.mat(matname)
+                        f.bc(matname)
+
+                    faces.append(f)
+
+                g_mesh_solid = occ.OCCGeometry(occ.Glue(faces))
+                g_mesh_solid.Heal()
+
+                for sol in g_mesh_solid.shape.solids:
+                    solids.append(sol)
+
+            bm.free()
+
+    # solids = [occ.Fuse(solids)]
+
+    for si, solid in enumerate(solids):
+        d_geo = d_geo.shape - solid if not si else d_geo - solid
+        fns = [face.name for face in d_geo.faces]
+        fcs = [face.center for face in d_geo.faces]
+
+        if None in set([face.name for face in d_geo.faces]):
+            for fi, face in enumerate(d_geo.faces):
+                if face.name is None:
+                    for fci, fc in enumerate(fcs):
+                        if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+                            face.name = fns[fci]
+                            break
+
+                    if face.name is None:
+                        face.name = fns[fi]
+
+    return d_geo.solids[1:]
+
+def solid_to_mesh(svp, solid, si, op):
+    if any([len(face.wires) > 1 for face in solid.faces]):
+        fis, verts, mat_list, vno = [], [], [], 0
+        solid.MakeTriangulation()
+        solid.WriteBrep(os.path.join(svp['viparams']['newdir'], 'temp.brep'), withTriangles=1)
+
+        with open(os.path.join(svp['viparams']['newdir'], 'temp.brep')) as brep_file:
+            brep_lines = brep_file.readlines()
+        
+        for li, line in enumerate(brep_lines):
+            if line.split() and line.split()[0] == 'Triangulations':
+                t_lines = brep_lines[li + 1: li + 1 + 2 * int(line.split()[1])]
+                break
+        
+        for li, line in enumerate(t_lines):
+            if not li % 2:
+                verts.append(t_lines[li + 1].split()[:int(line.split()[0]) * 3])
+                fis.append([int(f) - 1 + vno for f in t_lines[li + 1].split()[-int(line.split()[1]) * 3:]])
+                vno += int(line.split()[0])
+
+                for m in range(int(line.split()[1])):
+                    mat_list.append(solid.faces[int(li/2)].name)
+
+        fis = [int(f) for fi in fis for f in fi]
+        step_fs = [[fis[i], fis[i + 1], fis[i + 2]] for i in range(len(fis)) if not i % 3]
+        vps = [float(v) for p in verts for v in p]
+        step_vs = [[vps[i], vps[i + 1], vps[i + 2]] for i in range(len(vps)) if not i % 3]
+        
+    else:   
+        all_vps = []
+        mat_list = [face.name for face in solid.faces]
+        step_vs = []
+        step_fs = []
+
+        if mat_list and len(set(mat_list)) > 1:
+            for fi, face in enumerate(solid.faces):
+                vps = [tuple(v.p) for v in face.wires[0].vertices]
+
+                if not len(vps) % 2:
+                    if vps[0] not in (vps[-2], vps[-1]):
+                        vps[0], vps[1] = vps[1], vps[0]
+
+                    for vi in [vi for vi in range(1, len(vps) - 1) if vi % 2]:
+                        if vps[vi] != vps[vi + 1]:
+                            vps[vi + 1], vps[vi + 2] = vps[vi + 2], vps[vi + 1]
+
+                    if not all([vps[vi] == vps[vi+1] for vi in range(len(vps) -1) if vi % 2]):
+                        evps = [[tuple([round(p, 5) for p in e.start]), tuple([round(p, 5) for p in e.end])] for e in face.edges]
+
+                        for evi in range(len(evps) - 1):
+                            if evps[evi] not in evps[evi+1] and evps[evi] not in evps[evi+1]:
+                                for vi in range(evi + 2, len(evps)):
+                                    if evps[evi][0] in evps[vi] or evps[evi][1] in evps[vi]:
+                                        evps[evi + 1], evps[vi] = evps[vi], evps[evi + 1]
+                                        break
+
+                        for evi in range(len(evps) - 1):
+                            if evps[evi][0] in evps[evi + 1]:
+                                evps[evi][0], evps[evi][1] = evps[evi][1], evps[evi][0]
+                            if evps[evi + 1][1] in evps[evi]:
+                                evps[evi + 1][0], evps[evi + 1][1] = evps[evi + 1][1], evps[evi + 1][0]
+
+                        vps = [x for xs in evps for x in xs]
+
+                    all_vps.append([vps[vi] for vi in range(len(vps)) if not vi % 2])
+
+            fis = [len(step_v) for step_v in all_vps]
+            step_vs = [x for xs in all_vps for x in xs ]
+            f = 0
+
+            for fi in fis:
+                step_fs.append([i for i in range(f, f + int(fi))])
+                f += int(fi)
+
+        elif len(set(mat_list)) < 2:
+            op.report({'WARNING'}, "Solids create a volume with only one material type. Create or duplicate an additional material on the zone boundary")
+            logentry('Error: Solids create a volume with only one material type. Create or duplicate an additional material on the zone boundary')
+    
+    if f'Zone{si}' not in [mesh.name for mesh in bpy.data.meshes]:
+        mesh = bpy.data.meshes.new(f'Zone{si}')
+    else:
+        mesh = bpy.data.meshes[f'Zone{si}']
+        bm = bmesh.new()
+        bm.to_mesh(mesh)
+        bm.free()
+
+    mesh.from_pydata(step_vs, [], step_fs, shade_flat=True)
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist = 0.00001)
+    manifold = all([e.is_manifold for e in bm.edges])
+
+    if not manifold:
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+    manifold = all([e.is_manifold for e in bm.edges])
+    # manifold = True
+
+    for mi, mat in enumerate(set(mat_list)):
+        if mat:
+            if len(mesh.materials) < mi + 1:
+                mesh.materials.append(bpy.data.materials[mat])
+            else:
+                mesh.materials[mi] = bpy.data.materials[mat]
+
+    for poly in bm.faces:
+        poly.material_index = list(set(mat_list)).index(mat_list[poly.index])
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.dissolve_limit(bm, angle_limit=0.1, use_dissolve_boundaries=False, verts=bm.verts, edges=bm.edges, delimit={'NORMAL', 'MATERIAL'})
+    bm.to_mesh(mesh)
+    bm.free()
+    return manifold, mesh
 
 def ob_to_stl(self, dp, stl_path):
     o = self.id_data

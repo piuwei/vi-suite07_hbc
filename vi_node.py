@@ -18,18 +18,18 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-import bpy, glob, os, inspect, datetime, shutil, time, math, mathutils, sys, json, bmesh, shlex
-from collections import OrderedDict
+import bpy, glob, os, inspect, datetime, shutil, math, mathutils, sys, json, bmesh, shlex
+# from collections import OrderedDict
 from pathlib import Path
 from bpy.props import EnumProperty, FloatProperty, IntProperty, BoolProperty, StringProperty, FloatVectorProperty
 from bpy.types import NodeTree, Node, NodeSocket
 from nodeitems_utils import NodeCategory, NodeItem
 from subprocess import Popen, PIPE
-from .vi_func import socklink, socklink2, uvsocklink, uvsocklink2, newrow, epwlatilongi, nodeinputs, remlink, rettimes, sockhide, selobj
-from .vi_func import nodecolour, facearea, retelaarea, iprop, bprop, eprop, fprop, retdates
-from .vi_func import delobj, logentry, ret_camera_menu, ret_param, ret_empty_menu, ret_datab, epentry
+from .vi_func import socklink, socklink2, uvsocklink2, newrow, epwlatilongi, nodeinputs, remlink, rettimes, sockhide, selobj
+from .vi_func import nodecolour, retelaarea, iprop, bprop, eprop, fprop, retdates, rm_coll
+from .vi_func import delobj, logentry, ret_camera_menu, ret_empty_menu, ret_datab, epentry, meshes_to_solids, solid_to_mesh
 from .livi_func import hdrsky, cbdmhdr, cbdmmtx, retpmap, validradparams, sunposlivi
-from .envi_func import retrmenus, enresprops, epschedwrite, processf, get_mat, get_con_node, get_base
+from .envi_func import enresprops, epschedwrite, processf, get_mat, get_con_node
 from .livi_export import livi_sun, livi_sky, livi_ground, hdrexport
 from .envi_mat import envi_materials, envi_constructions, envi_embodied, envi_layer, envi_layertype, envi_elayertype, envi_eclasstype, envi_emattype
 from .flovi_func import ret_fvb_menu, ret_fvbp_menu, ret_fvbu_menu, ret_fvbnut_menu, ret_fvbk_menu, ret_fvbepsilon_menu, ret_fvba_menu, ret_fvbt_menu, ret_fvbprgh_menu
@@ -43,7 +43,7 @@ try:
     from netgen.stl import STLGeometry
     from pyngcore import SetNumThreads, TaskManager
     ng = 1
-except Exception as e:
+except Exception:
     ng = 0
 
 try:
@@ -135,13 +135,29 @@ class No_Loc(Node, ViNodes):
     bl_label = 'VI Location'
     bl_icon = 'WORLD'
 
+    def update_north(self, context):
+        nvec = mathutils.Vector((0.0, 1.0, 0.0))
+        
+        if self.north:
+            nvec.rotate(mathutils.Euler((0.0, 0.0, -math.radians(self.azimuth)), 'XYZ'))
+        
+            if not context.scene.vi_params.get('viparams'):
+                context.scene.vi_params['viparams'] = {}
+            
+        context.scene.vi_params['viparams']['North'] = nvec
+
+
     def updatelatlong(self, context):
         context.space_data.edit_tree == ''
         scene = context.scene
         svp = scene.vi_params
         reslists = []
 
-        if self.loc == '1':
+        if self.loc == '0':
+            if 'Vi Results' in self.outputs['Location out'].valid:
+                self.outputs['Location out'].valid.remove('Vi Results')
+
+        elif self.loc == '1':
             entries = []
             addonfolder = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
             vi_prefs = bpy.context.preferences.addons['{}'.format(addonfolder)].preferences
@@ -198,11 +214,12 @@ class No_Loc(Node, ViNodes):
                     for c in {"Temperature (degC)": 6, 'Humidity (%)': 8, "Direct Solar (W/m^2)": 14, "Diffuse Solar (W/m^2)": 15, 'Wind Direction (deg)': 20, 'Wind Speed (m/s)': 21}.items():
                         reslists.append(['0', 'Climate', 'Exterior', c[0], ' '.join([cdata for cdata in list(epwcolumns[c[1]])])])
 
-                    self.outputs['Location out']['epwtext'] = epwfile.read()
-                    self.outputs['Location out']['valid'] = ['Location', 'Vi Results']
+                    self['epwtext'] = epwfile.read()
+                    self.outputs['Location out'].valid.append('Vi Results')
             else:
-                self.outputs['Location out']['epwtext'] = ''
-                self.outputs['Location out']['valid'] = ['Location']
+                self['epwtext'] = ''
+                if 'Vi Results' in self.outputs['Location out'].valid:
+                    self.outputs['Location out'].valid.remove('Vi Results')
 
         socklink(self.outputs['Location out'], self.id_data.name)
         self['reslists'] = reslists
@@ -229,6 +246,8 @@ class No_Loc(Node, ViNodes):
     avws: FloatProperty(name="", description="Average wind speed", min=0, max=0, default=0)
     dsdoy: IntProperty(name="", description="", min=1, max=365, default=1)
     dedoy: IntProperty(name="", description="", min=1, max=365, default=365)
+    north: BoolProperty(name="", description="", default=0, update=update_north)
+    azimuth: FloatProperty(name="", description="Degrees clockwise +Y axis", min=-360, max=360, default=0, update=update_north)
 
     def init(self, context):
         self.outputs.new('So_Vi_Loc', 'Location out')
@@ -246,6 +265,11 @@ class No_Loc(Node, ViNodes):
         nodecolour(self, self.ready())
 
     def draw_buttons(self, context, layout):
+        newrow(layout, "Custom North:", self, 'north')
+
+        if self.north:
+            newrow(layout, "Azimuth:", self, 'azimuth')
+
         newrow(layout, "Source:", self, 'loc')
 
         if self.loc == "1":
@@ -408,7 +432,9 @@ class No_Li_Con(Node, ViNodes):
             else:
                 bpy.ops.object.light_add(type='SUN')
                 sun = bpy.context.object
-                sun['VIType'] = 'Sun'
+                
+                if sun:
+                    sun['VIType'] = 'Sun'
 
             if self.inputs['Location in'].links and suns:
                 sunposlivi(scene, self, frames, sun, starttime)
@@ -621,19 +647,6 @@ class No_Li_Con(Node, ViNodes):
                     newrow(layout, 'Start hours:', self, 'cbdm_shour')
                     newrow(layout, 'End hour:', self, 'cbdm_ehour')
 
-            # if self.metric == '0':
-                
-
-            #     if self.cbanalysismenu == '2':
-            #         row = layout.row()
-            #         row.label(text="--")
-
-            #         if self.metric == '0':
-                        
-
-            #         row = layout.row()
-            #         row.label(text="--")
-
             elif self.cbanalysismenu == '3':
                 newrow(layout, 'Hourly DGP:', self, 'dgp_hourly')
 
@@ -643,27 +656,8 @@ class No_Li_Con(Node, ViNodes):
                 newrow(layout, 'Views:', self, 'dgp_views')
                 newrow(layout, 'Azimuth:', self, 'dgp_azi')
 
-            # elif self.cbanalysismenu == '2' and self.metric == '0':
-            #     newrow(layout, 'Start hour:', self, 'cbdm_start_hour')
-            #     newrow(layout, 'End hour:', self, 'cbdm_end_hour')
-
-            # if self.cbanalysismenu == '0':
-            #     newrow(layout, 'Source file:', self, 'sourcemenu')
-            # else:
-            #     newrow(layout, 'Source file:', self, 'sourcemenu2')
-
-            # row = layout.row()
-
-            # if self.sourcemenu2 == '1' and self.cbanalysismenu in ('1', '2'):
-            #     newrow(layout, "MTX file:", self, 'mtxname')
-
-            # elif self.sourcemenu == '1' and self.cbanalysismenu == '0':
-            #     newrow(layout, "HDR file:", self, 'hdrname')
-            # else:
-            #     newrow(layout, 'Resolution:', self, 'cbdm_res')
-
-            if self.cbanalysismenu != '0':
-                newrow(layout, 'HDR:', self, 'hdr')
+            # if self.cbanalysismenu != '0':
+            #     newrow(layout, 'HDR:', self, 'hdr')
 
         if self.contextmenu == 'Basic':
             if int(self.skymenu) > 2 or int(self.skyprog) > 1 or (int(self.skymenu) < 3 and self.inputs['Location in'].links):
@@ -847,16 +841,11 @@ class No_Li_Con(Node, ViNodes):
                             if line.split('=')[0] == 'NROWS':
                                 self.cbdm_res = (146, 578, 2306, 9218).index(int(line.split('=')[1])) + 1
                                 break
-                            # elif line.split('=')[0] == 'NCOLS':
-                            #     if len(self.times) != int(line.split('=')[1]):
-                            #         export_op.report({'ERROR'}, "Outdated MTX file")
-                            #         self._valid = 0
-                            #         return
 
                         self['Options']['MTX'] = mtxfile.read()
 
-                if self.hdr:
-                    cbdmhdr(self, scene, export_op)
+                # if self.hdr:
+                #     cbdmhdr(self, scene, export_op)
 
     def postexport(self):
         (csh, ceh) = (self.cbdm_shour, self.cbdm_ehour) if (self.cbanalysismenu == '2' and self.metric in ('0', '1')) or self.cbanalysismenu != '2' else (1, 24)
@@ -1309,7 +1298,7 @@ class No_Li_Sim(Node, ViNodes):
 
     def draw_buttons(self, context, layout):
         scene = context.scene
-        svp = scene.vi_params
+        # svp = scene.vi_params
 
         if self.inputs['Context in'].links and self.inputs['Geometry in'].links:
             cinnode = self.inputs['Context in'].links[0].from_node
@@ -1355,7 +1344,7 @@ class No_Li_Sim(Node, ViNodes):
                             row = layout.row()
                             row.label(text="Red input node")
 
-                    except Exception as e:
+                    except Exception:
                         row = layout.row()
                         row.label(text="Missing input node")
 
@@ -1731,7 +1720,7 @@ class No_En_Geo(Node, ViNodes):
     bl_icon = 'MOD_BUILD'
 
     def ret_params(self):
-        return [str(x) for x in (self.geo_offset, self.netgen, self.collection)]
+        return [str(x) for x in (self.geo_offset, self.netgen, self.collection, self.write_step)]
 
     def nodeupdate(self, context):
         nodecolour(self, self['exportstate'] != self.ret_params())
@@ -1740,6 +1729,7 @@ class No_En_Geo(Node, ViNodes):
                                     subtype='TRANSLATION', unit='NONE', size=3, update=None, get=None, set=None)
     netgen: BoolProperty(name="", description="Netgen mesh extraction", update=nodeupdate)
     collection: StringProperty(description="Select collection", update=nodeupdate)
+    write_step: BoolProperty(name="", description="Write STEP file", update=nodeupdate)
     
     def init(self, context):
         self.outputs.new('So_En_Geo', 'Geometry out')
@@ -1747,14 +1737,20 @@ class No_En_Geo(Node, ViNodes):
         nodecolour(self, 1)
 
     def draw_buttons(self, context, layout):
-        newrow(layout, 'Offset:', self, 'geo_offset')
-        # newrow(layout, 'Solid:', self, 'netgen')
+        newrow(layout, 'Solid:', self, 'netgen')
 
-        # if self.netgen:
-        #     layout.prop_search(self, 'collection', bpy.data, 'collections', text='', icon='COLLECTION_COLOR_05')
+        if not self.netgen:
+            newrow(layout, 'Offset:', self, 'geo_offset')
+        else:
+            layout.prop_search(self, 'collection', bpy.data, 'collections', text='', icon='COLLECTION_COLOR_05')
+            newrow(layout, 'Write STEP:', self, 'write_step')
 
-        row = layout.row()
-        row.operator("node.engexport", text="Export")
+        if not self.netgen or bpy.data.collections.get(self.collection):
+            row = layout.row()
+            row.operator("node.engexport", text="Export")
+        else:
+            row = layout.row()
+            row.label(text='Collection required')
 
     def update(self):
         for sock in self.outputs:
@@ -1985,7 +1981,7 @@ class No_En_Sim(Node, ViNodes):
                 for rl in self['reslists']:
                     if rl[1] == 'Surface':
                         ob_name = '_'.join(rl[2].split('_')[:-1]) if rl[2][:3] == 'EN_' else '_'.join(rl[2].split('_')[:-1])['_'.join(rl[2].split('_')[:-1]).find('EN_'):]
-                        f_index = rl[2].split('_')[-1]
+                        # f_index = rl[2].split('_')[-1]
 
                         if ob_name not in sresdict:
                             sresdict[ob_name] = {}
@@ -2043,7 +2039,7 @@ class No_En_IF(Node, ViNodes):
         self.inputs.new('ViLoc', 'Location in')
         self.outputs.new('ViEnC', 'Context out')
         self.outputs['Context out'].hide = True
-        self['nodeid'] = nodeid(self)
+        #self['nodeid'] = nodeid(self)
         nodecolour(self, 1)
 
     def draw_buttons(self, context, layout):
@@ -2102,7 +2098,6 @@ class So_En_ResU(NodeSocket):
     bl_idname = 'So_En_ResU'
     bl_label = 'Axis'
     valid = ['Vi Results']
-
     r_len: IntProperty()
 
     def draw_color(self, context, node):
@@ -2119,56 +2114,55 @@ class ViEnRIn(So_En_ResU):
 
     def f_menu(self, context):
         try:
-            frs = [(f'{frame}', f'{frame}', f'Frame {frame}') for frame in self['resdict'].keys() if frame]
+            frs = [(f'{frame}', f'{frame}', f'Frame {frame}') for frame in self.node['resdict'][self.name].keys() if frame]
 
             if frs:
                 return frs
             else:
                 return [('None', 'None', 'None')]
+
         except Exception:
             return [('None', 'None', 'None')]
 
     def r_menu(self, context):
         try:
-            ress = [(f'{res}', f'{res}', f'Frame {res}') for res in self['resdict'][self.framemenu].keys() if res]
+            ress = [(f'{res}', f'{res}', f'Frame {res}') for res in self.node['resdict'][self.name][self.framemenu].keys() if res]
             if ress:
                 return ress
             else:
                 return [('None', 'None', 'None')]
+
         except Exception:
             return [('None', 'None', 'None')]
 
     def z_menu(self, context):
         try:
-            zres = [(f'{res}', f'{res}', f'Zone {res}') for res in self['resdict'][self.framemenu][self.resultmenu].keys() if res]
+            zres = [(f'{res}', f'{res}', f'Zone {res}') for res in self.node['resdict'][self.name][self.framemenu][self.resultmenu].keys() if res]
 
             if zres:
                 return zres
             else:
                 return [('None', 'None', 'None')]
+
         except Exception:
             try:
-                r = list(self['resdict'][self.framemenu].keys())[0]
-                z = list(self['resdict'][self.framemenu][r].keys())[0]
-                self.zonemenu = list(self['resdict'][self.framemenu][r].keys())[0]
-                return [(f'{res}', f'{res}', f'Zone {res}') for res in self['resdict'][self.framemenu][r].keys() if res]
+                r = list(self.node['resdict'][self.name][self.framemenu].keys())[0]
+                self.zonemenu = list(self.node['resdict'][self.name][self.framemenu][r].keys())[0]
+                return [(f'{res}', f'{res}', f'Zone {res}') for res in self.node['resdict'][self.name][self.framemenu][r].keys() if res]
+
             except Exception:
                 return [('None', 'None', 'None')]
 
     def m_menu(self, context):
         try:
-            m_entries = [(f'{res}', f'{res}', f'Frame {res}') for res in self['resdict'][self.framemenu][self.resultmenu][self.zonemenu] if res]
+            m_entries = [(f'{res}', f'{res}', f'Frame {res}') for res in self.node['resdict'][self.name][self.framemenu][self.resultmenu][self.zonemenu] if res]
 
             if m_entries:
                 return m_entries
             else:
                 return [('None', 'None', 'None')]
+
         except Exception:
-            # try:
-            #     r = list(self['resdict'][self.framemenu].keys())[0]
-            #     z = list(self['resdict'][self.framemenu][r].keys())[0]
-            #     return [(f'{res}', f'{res}', f'Frame {res}') for res in self['resdict'][self.framemenu][r][z] if res]
-            # except Exception:
             return [('None', 'None', 'None')]
 
     def f_update(self, context):
@@ -2183,6 +2177,7 @@ class ViEnRIn(So_En_ResU):
             rl = innode['reslists']
             zrl = list(zip(*rl))
             self.r_len = [len(res[4].split()) for res in rl if res[0] == self.framemenu and res[1] == self.resultmenu and res[2] == self.zonemenu and res[3] == self.metricmenu][0]
+
         except Exception:
             self.r_len = 0
 
@@ -2204,7 +2199,7 @@ class ViEnRIn(So_En_ResU):
             elif self.resultmenu == 'Frames':
                 frames = [int(k) for k in set(zrl[0]) if k != 'All']
                 startframe, endframe = min(frames), max(frames)
-                frame = 'All'
+                # frame = 'All'
                 start_ui_data = self.node.id_properties_ui("Start")
                 start_ui_data.update(min=startframe, max=endframe)
                 end_ui_data = self.node.id_properties_ui("End")
@@ -2225,6 +2220,7 @@ class ViEnRIn(So_En_ResU):
             innode = self.links[0].from_node
             rl = innode['reslists']
             self.r_len = [len(res[4].split()) for res in rl if res[0] == self.framemenu and res[1] == self.resultmenu and res[2] == self.zonemenu and res[3] == self.metricmenu][0]
+
         except Exception:
             self.r_len = 0
 
@@ -2238,6 +2234,7 @@ class ViEnRIn(So_En_ResU):
             innode = self.links[0].from_node
             rl = innode['reslists']
             self.r_len = [len(res[4].split()) for res in rl if res[0] == self.framemenu and res[1] == self.resultmenu and res[2] == self.zonemenu and res[3] == self.metricmenu][0]
+
         except Exception:
             self.r_len = 0
 
@@ -2272,14 +2269,15 @@ class ViEnRIn(So_En_ResU):
                             try:
                                 resdict[r[0]][r[1]] = {} if r[1] not in resdict[r[0]] else resdict[r[0]][r[1]]
                                 resdict[r[0]][r[1]][r[2]] = [] if r[2] not in resdict[r[0]][r[1]] else resdict[r[0]][r[1]][r[2]]
-                                resdict[r[0]][r[1]][r[2]].append(r[3])
+                                if r[3] not in resdict[r[0]][r[1]][r[2]]: # and len(r[4].split()) == len(self.node.inputs[0].resdict[r[0]][r[1]][r[2]][r[3]].split()):
+                                    resdict[r[0]][r[1]][r[2]].append(r[3])
+
                             except Exception as e:
                                 logentry(e)
 
-                    self.node.inputs[ax]['resdict'] = resdict
-                    self.node.inputs[ax].r_len = self.node.inputs['X-axis'].r_len if resdict else 0
+                    self.node['resdict'][ax] = resdict
+                    self.node.inputs[ax].r_len = self.node.inputs['X-axis'].r_len if self.node['resdict'][ax] else 0
 
-            # self.update_entries(axes)
 
     def update_entries(self, context):
         axes = ('X-axis', 'Y-axis 1', 'Y-axis 2', 'Y-axis 3')
@@ -2303,12 +2301,6 @@ class ViEnRIn(So_En_ResU):
                                   ('Sum', 'Sum', 'Sum Value')], name="", description="Zone result", default='Average')
 
     def draw(self, context, layout, node, text):
-        typedict = {"Time": [], "Frames": [], "Climate": ['climmenu'],
-                    "Zone spatial": ("zonemenu", "zonermenu"), "Zone temporal": ("zonemenu", "zonermenu"),
-                    "Embodied carbon": ("ecmenu", "ecrmenu"), "Linkage": ("linkmenu", "linkrmenu"),
-                    "External": ("enmenu", "enrmenu"), "Position": ("posmenu", "posrmenu"),
-                    "Camera": ("cammenu", "camrmenu"), "Power": ("powmenu", "powrmenu"),
-                    "Probe": ("probemenu", "probermenu")}
         row = layout.row()
 
         if self.links and self.links[0].from_node.get('frames'):
@@ -2406,10 +2398,9 @@ class No_Vi_Chart(Node, ViNodes):
                     row.prop(self, "timemenu")
 
                 row.prop(self, "dpi")
-
                 r_lens = [sock.r_len for sock in self.inputs if sock.links]
 
-                if len(r_lens) > 1 and all([r == r_lens[0] for r in r_lens]):
+                if len(r_lens) > 1 and all([r == r_lens[0] for r in r_lens]) and all([self.inputs[i].is_linked for i in range(len(r_lens))]):
                     row = layout.row()
                     row.operator("node.chart", text='Create plot')
                     row = layout.row()
@@ -2425,8 +2416,8 @@ class No_Vi_Chart(Node, ViNodes):
                 innode = rsx.links[0].from_node
                 rl = innode['reslists']
                 zrl = list(zip(*rl))
-                rsx['resdict'] = {}
                 resdict = {}
+                self['resdict'] = {}
 
                 for r in rl:
                     if r:
@@ -2435,19 +2426,24 @@ class No_Vi_Chart(Node, ViNodes):
                         try:
                             resdict[r[0]][r[1]] = {} if r[1] not in resdict[r[0]] else resdict[r[0]][r[1]]
                             resdict[r[0]][r[1]][r[2]] = [] if r[2] not in resdict[r[0]][r[1]] else resdict[r[0]][r[1]][r[2]]
-                            resdict[r[0]][r[1]][r[2]].append(r[3])
-                        except Exception:
-                            pass
 
-                rsx['resdict'] = resdict
+                            if r[3] not in resdict[r[0]][r[1]][r[2]]:
+                                resdict[r[0]][r[1]][r[2]].append(r[3])
 
-                if resdict:
+                        except Exception as e:
+                            print('e', e)
+
+                self['resdict']['X-axis'] = resdict
+
+                if self['resdict']['X-axis']:
                     i = 0
 
                     while rsx.framemenu not in [r[0] for r in rsx.f_menu(0)] and i < 5:
+
                         try:
                             rsx.framemenu = rsx.f_menu(self)[0][0]
-                        except Exception:
+                        except Exception as e:
+                            print(e)
                             i += 1
 
                     i = 0
@@ -2495,7 +2491,6 @@ class No_Vi_Chart(Node, ViNodes):
                                     break
 
                         startframe, endframe = min(frames), max(frames)
-                        frame = 'All'
                         start_ui_data = self.id_properties_ui("Start")
                         start_ui_data.update(min=startframe, max=endframe, soft_min=startframe, soft_max=endframe)
                         end_ui_data = self.id_properties_ui("End")
@@ -2641,7 +2636,7 @@ class No_Vi_Chart(Node, ViNodes):
                             rsy3.metricmenu = rsy3.metricmenu
 
                 else:
-                    self.inputs['Y-axis 1']['resdict'], self.inputs['Y-axis 2']['resdict'], self.inputs['Y-axis 3']['resdict'] = {}, {}, {}
+                    self.inputs['Y-axis 1'].resdict, self.inputs['Y-axis 2'].resdict, self.inputs['Y-axis 3'].resdict = {}, {}, {}
                     if self.inputs.get('Y-axis 1'):
                         self.inputs['Y-axis 1'].hide = True
                     if self.inputs.get('Y-axis 2'):
@@ -2742,7 +2737,7 @@ class No_Vi_HMChart(Node, ViNodes):
         except Exception:
             try:
                 r = list(self['resdict'][self.framemenu].keys())[0]
-                z = list(self['resdict'][self.framemenu][r].keys())[0]
+                # z = list(self['resdict'][self.framemenu][r].keys())[0]
                 self.locmenu = list(self['resdict'][self.framemenu][r].keys())[0]
                 return [(f'{res}', f'{res}', f'Zone {res}') for res in self['resdict'][self.framemenu][r].keys()]
             except Exception:
@@ -2781,7 +2776,7 @@ class No_Vi_HMChart(Node, ViNodes):
 
                         elif r[3] == 'Hour':
                             self.y = (array([float(r) for r in r[4].split()]))
-                            hno = len(unique(self.y))
+                            # hno = len(unique(self.y))
 
                     elif r[1] == self.resmenu:
                         if self.resmenu == 'Climate':
@@ -2815,6 +2810,10 @@ class No_Vi_HMChart(Node, ViNodes):
     hourend: IntProperty(name='', description="End hour", default=23, min=0, max=23)
     varmin: IntProperty(name='', description="Variable minimum", default=0)
     varmax: IntProperty(name='', description="Varaible maximum", default=20)
+    m_average: BoolProperty(name="", description="Monthly average of each hour", default=0)
+    c_type: EnumProperty(items=[('0', 'Number', 'Set the number of contour levels'), ('1', 'Increment', 'Set the difference between contour levels')], name="", description="Contour specification")
+    ci: FloatProperty(name="", description="Line width", min=0.0, default=1)
+    sl: FloatProperty(name="", description="Starting level", default=0)
     grid: BoolProperty(name="", description="Grid", default=0)
     x, y, z = array([]), array([]), array([])
 
@@ -2857,19 +2856,28 @@ class No_Vi_HMChart(Node, ViNodes):
                     row.prop(self, 'varmax')
 
                 newrow(layout, 'Colour map:', svp, "vi_leg_col")
-                newrow(layout, 'Contour lines:', self, "cl")
 
-                if self.cl:
+                if self.daystart == 1 and self.dayend == 365 and self.hourstart == 0 and self.hourend == 23:
+                    newrow(layout, 'Monthly average', self, 'm_average')
+
+                if not (self.daystart == 1 and self.dayend == 365 and self.hourstart == 0 and self.hourend == 23) or not self.m_average:
+                    newrow(layout, 'Contour lines:', self, "cl")
+
+                    if self.cl:
+                        newrow(layout, 'Line width:', self, "lw")
+                        newrow(layout, 'Contour values:', self, "lvals")
+
+                    newrow(layout, 'Contour fill:', self, "cf")
+
+                    if self.cf:
+                        newrow(layout, 'Grid display:', self, "grid")
+
+                    if self.cl or self.cf:
+                        newrow(layout, 'Contour levels:', self, "clevels")
+                else:
+                    newrow(layout, 'Lowest contour:', self, "sl")
+                    newrow(layout, 'Contour interval:', self, "ci")
                     newrow(layout, 'Line width:', self, "lw")
-                    newrow(layout, 'Contour values:', self, "lvals")
-
-                newrow(layout, 'Contour fill:', self, "cf")
-
-                if self.cf:
-                    newrow(layout, 'Grid display:', self, "grid")
-
-                if self.cl or self.cf:
-                    newrow(layout, 'Contour levels:', self, "clevels")
 
                 if self.framemenu and self.metricmenu != 'None':
                     row = layout.row()
@@ -3676,13 +3684,14 @@ class No_Vi_Metrics(Node, ViNodes):
                                 self['res']['ckwh'] = sum(float(p) for p in r[4].split()) * 0.001
                             elif r[3] == 'Air cooling (W)':
                                 self['res']['ackwh'] = sum(float(p) for p in r[4].split()) * 0.001
+
                         elif r[2] != 'All' and r[1] == 'Power' and 'EN_' + r[2].split('_')[1] == self.zone_menu and r[3] == 'PV power (W)':
                             self['res']['pvkwh'] += sum(float(p) for p in r[4].split()) * 0.001
 
                 self['res']['hkwh'] = self['res']['hkwh'] / heat_mod + self['res']['ahkwh'] - self['res']['hkwh'] if self['res']['ahkwh'] > self['res']['hkwh'] else self['res']['hkwh'] / heat_mod
                 self['res']['ckwh'] = self['res']['ckwh'] / self.ac_cop + self['res']['ackwh'] - self['res']['ckwh'] if self['res']['ackwh'] > self['res']['ckwh'] else self['res']['ckwh'] / self.ac_cop
-                self['res']['totkwh'] = (self['res']['hkwh'] + self['res']['ckwh'] + self.mod * self['res']['fa'])
-                self['res']['netkwh'] = (self['res']['hkwh'] + self['res']['ckwh'] - self['res']['pvkwh'] + self.mod * self['res']['fa'])
+                self['res']['totkwh'] = self['res']['hkwh'] + self['res']['ckwh'] + self.mod * self['res']['fa']
+                self['res']['netkwh'] = self['res']['hkwh'] + self['res']['ckwh'] - self['res']['pvkwh'] + self.mod * self['res']['fa']
 
             elif self.energy_menu == '2':
                 for r in self['rl']:
@@ -3886,8 +3895,8 @@ class No_Vi_Metrics(Node, ViNodes):
                         for z in o_dfs[f]:
                             av_df = round(sum(o_dfs[f][z] * o_areas[f][z]) / sum(o_areas[f][z]), 2)
                             rat_df = round(min(o_dfs[f][z]) / self['res']['avDF'], 2)
-                            reslists.append([f, 'Zone', z, 'Average DF', str(av_df)])
-                            reslists.append([f, 'Zone', z, 'Uniformity ratio', str(rat_df)])
+                            reslists.append([f, 'Zone spatial', z, 'Average DF', str(av_df)])
+                            reslists.append([f, 'Zone spatial', z, 'Uniformity ratio', str(rat_df)])
 
                     self['reslists'] = reslists
 
@@ -3951,7 +3960,6 @@ class No_Vi_Metrics(Node, ViNodes):
             self['res']['WPC'] = {}
             self['res']['Q'] = {}
             frames = []
-            wpcs = {}
             reslists = []
             pref_flag = 0
             ws_flag = 0
@@ -3968,7 +3976,7 @@ class No_Vi_Metrics(Node, ViNodes):
                     if pref_flag and ws_flag:
                         break
 
-            (ws, pref) = (ws, pref) if ws_flag and pref_flag and self.ref_type == '0' else (self.ws, self.pref)
+            (ws, pref) = (ws, pref) if ws_flag and pref_flag and self.ref_type == '0' and ws else (self.ws, self.pref)
 
             for pn in pnames:
                 for r in self['rl']:
@@ -4129,7 +4137,7 @@ class No_Vi_Metrics(Node, ViNodes):
 
             if bpy.data.collections.get('EnVi Geometry') and self.zone_menu != 'None':
                 hours = 8760
-                ofcs = {}
+                # ofcs = {}
                 owlcs, ecwlcs, ofwlcs, wlcs, reslists = [], [], [], [], []
                 cop = 1 / self.elec_cop if self.heat_type == '1' else 1 / (self.gas_eff * 0.01)
                 hw_cop = 1 / self.hw_cop if self.heat_type == '1' else 1 / (self.gas_eff * 0.01)
@@ -4203,11 +4211,6 @@ class No_Vi_Metrics(Node, ViNodes):
                             self['res']['ecwlc'] = ecwlc
                             self['res']['ofwlc'] = ofwlc
                             self['res']['wlc'] = wlc
-                            # self['res']['ec'] = ecwlcs
-                            # self['res']['of'] = ofwlc
-                            # self['res']['wl'] = wlc
-                            # self['res']['oc'] = owlc
-                            # self['res']['noc'] = [owlc - ofwlc]
 
                         owlcs.append(owlc)
                         ecwlcs.append(ecwlc)
@@ -4220,7 +4223,6 @@ class No_Vi_Metrics(Node, ViNodes):
                     reslists.append([str(frame), 'Carbon', self.zone_menu, 'Net operational carbon (kgCO2e)', '{:.3f}'.format(owlc - ofwlc)])
                     reslists.append([str(frame), 'Carbon', self.zone_menu, 'Whole-life carbon (kgCO2e)', '{:.3f}'.format(wlc)])
 
-                # if self.frame_menu == 'All':
                 self['res']['ec'] = ecwlcs
                 self['res']['of'] = ofwlcs
                 self['res']['wl'] = wlcs
@@ -4246,53 +4248,6 @@ class No_Vi_Metrics(Node, ViNodes):
                                 # rts = array([float(p) for p in r[4].split()])
                                 # rt = float(r[4])
                                 self['res']['rt'] = float(r[4])
-    # def ret_reslists(self, zones):
-    #     reslists = []
-
-    #     for frame in [f[0] for f in self['frames']]:
-    #         for zone in zones:
-    #             for r in self['rl']:
-    #                 if r[2] == zone:
-    #                     if r[3] == 'Heating (W)':
-    #                         heat_kwh = sum([float(h) for h in r[4].split()]) * 0.001
-    #                         aheat_kwh += heat_kwh
-    #                         hours = len(r[4].split())
-    #                     if r[3] == 'Cooling (W)':
-    #                         cool_kwh = sum([float(h) for h in r[4].split()]) * 0.001
-    #                         acool_kwh += cool_kwh
-    #                     elif r[3] == '{} EC (kgCO2e/y)'.format(('Zone', 'Total')[self.zone_menu == 'All']):
-    #                         ec_kgco2e = float(r[4])
-    #                     elif r[3] == 'PV power (W)':
-    #                         pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
-
-    #                 elif r[1] == 'Power' and '_'.join(r[2].split('_')[:-1]) == zone and r[3] == 'PV power (W)':
-    #                     pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
-    #                 elif r[1] == 'Power' and zone == 'All' and r[3] == 'PV power (W)':
-    #                     pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
-    #                 elif r[1] == 'Zone temporal' and zone == 'All' and r[3] == 'Heating (W)':
-    #                     aheat_kwh += sum(float(p) for p in r[4].split()) * 0.001
-    #                 elif r[1] == 'Zone temporal' and zone == 'All' and r[3] == 'Cooling (W)':
-    #                     acool_kwh += sum(float(p) for p in r[4].split()) * 0.001
-
-    #             (heat_kwh, cool_kwh) = (aheat_kwh, acool_kwh) if self.zone_menu == 'All' else (heat_kwh, cool_kwh)
-    #             o_kwh = heat_kwh * 8760/hours * cop + cool_kwh * 8760/hours * self.ac_cop + (self.mod + self.hwmod * hw_cop) * self['res']['fa']
-    #             owlc = o_kwh * self.ec_years * self.carb_fac * (1 + (self.carb_annc * 0.01))**self.ec_years
-    #             ecwlc = ec_kgco2e * self.ec_years
-    #             ofwlc = pv_kwh * self.ec_years * self.carb_fac * (1 + (self.carb_annc * 0.01))**self.ec_years
-    #             wlc = owlc + ecwlc - ofwlc
-
-    #             owlcs.append(owlc)
-    #             ecwlcs.append(ecwlc)
-    #             ofwlcs.append(ofwlc)
-    #             wlcs.append(wlc)
-    #             # reslists.append(['All', 'Frames', 'Frames', 'Frames', ' '.join(['{}'.format(f[0]) for f in self['frames']])])
-    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ' '.join(['{:.3f}'.format()])
-    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ' '.join(['{:.3f}'.format()])])
-    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ])
-
-    def ret_metrics(self):
-        if self.inputs['Results in'].links:
-            reslist = self.inputs['Results in'].links[0].from_node['reslists']
 
 
 class No_CSV(Node, ViNodes):
@@ -4744,10 +4699,7 @@ class No_Flo_NG(Node, ViNodes):
         nodecolour(self, self['exportstate'] != self.ret_params())
 
     poly: BoolProperty(name='', description='Create polygonal mesh', default=0, update=nodeupdate)
-    # pcorr: FloatProperty(name="m", description="Maximum distance for position correspondance", min=0, max=1, default=0.1, update=nodeupdate)
-    # acorr: FloatProperty(name="", description="Minimum cosine for angular correspondance", min=0, max=1, default=0.9, update=nodeupdate)
     maxcs: FloatProperty(name="m", description="Max global cell size", min=0, max=100, default=1, update=nodeupdate)
-    # yang: FloatProperty(name="deg", description="Minimum angle for separate faces", min=0, max=90, default=1, update=nodeupdate)
     grading: FloatProperty(name="", description="Small to large cell inflation", min=0, max=0.99, default=0.1, update=nodeupdate)
     processors: IntProperty(name="", description="Number of processers", min=0, max=32, default=1, update=nodeupdate)
     optimisations: IntProperty(name="", description="Number of optimisation steps", min=0, max=32, default=3, update=nodeupdate)
@@ -4774,13 +4726,9 @@ class No_Flo_NG(Node, ViNodes):
         if self.inputs and self.inputs['Case in'].links:
             if all(flo_libs):
                 newrow(layout, 'Cell size:', self, 'maxcs')
-                # newrow(layout, 'Position corr:', self, 'pcorr')
-                # newrow(layout, 'Angular corr:', self, 'acorr')
-                # newrow(layout, 'Distinction angle:', self, 'yang')
                 newrow(layout, 'Inflation:', self, 'grading')
                 newrow(layout, 'Optimisations:', self, 'optimisations')
                 newrow(layout, 'Attempts:', self, 'maxsteps')
-                # newrow(layout, 'Blender mesh:', self, 'ofbm')
                 newrow(layout, 'Polygonal:', self, 'poly')
                 newrow(layout, 'Blender boundary:', self, 'b_only')
                 newrow(layout, 'Write STEPs:', self, 'debug_step')
@@ -5109,18 +5057,19 @@ class So_En_Net_SSSFlow(NodeSocket):
         return ['(Sub)Surface']
 
 
-class So_En_Net_CRef(NodeSocket):
-    '''A plain zone airflow component socket'''
-    bl_idname = 'So_En_Net_CRef'
-    bl_label = 'Plain zone airflow component socket'
-
-    sn = StringProperty()
-
-    def draw(self, context, layout, node, text):
-        layout.label(text=text)
-
-    def draw_color(self, context, node):
-        return (1.0, 0.4, 0.0, 0.75)
+# class So_En_Net_CRef(NodeSocket):
+#     '''A plain zone airflow component socket'''
+#     bl_idname = 'So_En_Net_CRef'
+#     bl_label = 'Plain zone airflow component socket'
+#
+#     sn = StringProperty()
+#     valid = ['Crack reference']
+#
+#     def draw(self, context, layout, node, text):
+#         layout.label(text=text)
+#
+#     def draw_color(self, context, node):
+#         return (1.0, 0.4, 0.0, 0.75)
 
 
 class So_En_Net_Occ(NodeSocket):
@@ -5595,7 +5544,7 @@ class No_En_Net_Hvac(Node, EnViNodes):
         paramvs2 = [z.zone + '_Equipment', 'SequentialLoad', 'ZoneHVAC:IdealLoadsAirSystem', z.zone + '_Air', 1, 1, '', '']
 
         if ef_name:
-            fi = [l.name.split('_')[-2] for zi in z.inputs if zi.links and zi.bl_idname == 'So_En_Net_SFlow'] + [zo.name.split('_')[-2] for zo in z.outputs if zo.links and zo.bl_idname == 'So_En_Net_SFlow']
+            fi = [zi.name.split('_')[-2] for zi in z.inputs if zi.links and zi.bl_idname == 'So_En_Net_SFlow'] + [zo.name.split('_')[-2] for zo in z.outputs if zo.links and zo.bl_idname == 'So_En_Net_SFlow']
             params2 += ['Zone Equipment 2 Object Type', 'Zone Equipment 2 Name',
                         'Zone Equipment 2 Cooling Sequence', 'Zone Equipment 2 Heating or No-Load Sequence',
                         'Zone Equipment 2 Sequential Cooling Fraction Schedule Name', 'Zone Equipment 2 Sequential Heating Fraction Schedule Name']
@@ -6106,12 +6055,12 @@ class No_En_Net_Ext(Node, EnViNodes):
         paramvs = [self.name, self.height, wpcname]
         enentry = epentry('AirflowNetwork:MultiZone:ExternalNode', params, paramvs)
 
-        for sock in self.inputs[:] + self.outputs[:]:
-            for link in sock.links:
-                wpcname = self.name + '_wpcvals'
-                wpcs = (self.wpc1, self.wpc2, self.wpc3, self.wpc4, self.wpc5, self.wpc6, self.wpc7, self.wpc8, self.wpc9, self.wpc10, self.wpc11, self.wpc12)
-                wparams = ['Name', 'AirflowNetwork:MultiZone:WindPressureCoefficientArray Name'] + ['Wind Pressure Coefficient Value {} (dimensionless)'.format(w + 1) for w in range(enng['enviparams']['wpcn'])]
-                wparamvs = ['{}_wpcvals'.format(self.name), 'WPC Array'] + [wpcs[wp] for wp in range(len(wparams))]
+        # for sock in self.inputs[:] + self.outputs[:]:
+        #     for link in sock.links:
+        #         wpcname = self.name + '_wpcvals'
+        #         wpcs = (self.wpc1, self.wpc2, self.wpc3, self.wpc4, self.wpc5, self.wpc6, self.wpc7, self.wpc8, self.wpc9, self.wpc10, self.wpc11, self.wpc12)
+                #wparams = ['Name', 'AirflowNetwork:MultiZone:WindPressureCoefficientArray Name'] + ['Wind Pressure Coefficient Value {} (dimensionless)'.format(w + 1) for w in range(enng['enviparams']['wpcn'])]
+                #wparamvs = ['{}_wpcvals'.format(self.name), 'WPC Array'] + [wpcs[wp] for wp in range(len(wparams))]
 
         return enentry + wpcentry
 
@@ -6201,8 +6150,8 @@ class No_En_Net_SFlow(Node, EnViNodes):
             newrow(layout, '{}:'.format(vals[0]), self, vals[1])
 
     def ep_write(self, exp_op, enng):
-        fentry, crentry, zn, en, enentry, surfentry, crname, snames = '', '', '', '', '', '', '', []
-        paradict = {}
+        fentry, crentry, zn, en, surfentry, crname, snames = '', '', '', '', '', '', []
+        # paradict = {}
 
         for sock in (self.inputs[:] + self.outputs[:]):
             for link in sock.links:
@@ -6241,9 +6190,9 @@ class No_En_Net_SFlow(Node, EnViNodes):
                 othersock = (link.from_socket, link.to_socket)[sock.is_output]
                 othernode = (link.from_node, link.to_node)[sock.is_output]
 
-                if othernode.bl_idname == 'No_En_Net_Ext':
-                    en = othernode.name
-                    enentry = othernode.ep_write(enng)
+                # if othernode.bl_idname == 'No_En_Net_Ext':
+                #     en = othernode.name
+                    #enentry = othernode.ep_write(enng)
 
             for link in sock.links:
                 othersock = (link.from_socket, link.to_socket)[sock.is_output]
@@ -6961,6 +6910,8 @@ class So_En_Mat_Sw(NodeSocket):
     '''EnVi switchable glazing layer socket'''
     bl_idname = 'So_En_Mat_Sw'
     bl_label = 'Switchable glazing layer socket'
+
+    valid = ['SwitchLayer']
 
     def draw(self, context, layout, node, text):
         layout.label(text=text)
@@ -9049,7 +9000,7 @@ class No_En_Mat_SG(Node, EnViMatNodes):
                 self['ecm2y'] = '{:.3f}'.format(float(self['ecdict']['eckg']) * float(self['ecdict']['density']) * self.thi * 0.001 / self.ec_life)
                 self['ecentries'] = [(k, self.ee.propdict[self.embodiedclass][self.embodiedtype][self.embodiedmat][k]) for k in self['ecdict'].keys()]
 
-            except Exception as e:
+            except Exception:
                 self['ecm2'] = 'N/A'
                 self['ecm2y'] = 'N/A'
 
@@ -9210,6 +9161,10 @@ class No_En_Mat_ShC(Node, EnViMatNodes):
             if not self.inputs['Schedule'].links:
                 nodecolour(self, 1)
 
+        elif self.outputs["Control"].links:
+            nodecolour(self, 0)
+
+
     def slatupdate(self, context):
         if self.sac != 'ScheduledSlatAngle':
             if self.inputs['Slat schedule'].links:
@@ -9331,7 +9286,7 @@ class No_En_Mat_PV(Node, EnViMatNodes):
         pass
 
     sandia_dict = {}
-    l = -40
+    # l = -40
 
     def ret_e1dmenu(self, context):
         with open(ret_datab('PV_database.json', 'r'), 'r') as e1d_jfile:
@@ -9665,14 +9620,6 @@ class No_En_Mat_Sched(Node, EnViMatNodes):
         params = ('Name', 'ScheduleType', 'Name of File', 'Column Number', 'Rows to Skip at Top', 'Number of Hours of Data', 'Column Separator')
         paramvs = (name, 'Any number', os.path.abspath(self.select_file), self.cn, self.rtsat, 8760, self.delim)
         schedtext = epentry('Schedule:File', params, paramvs)
-        '''    Schedule:File,
-        elecTDVfromCZ01res, !- Name
-        Any Number, !- ScheduleType
-        TDV_kBtu_CTZ01.csv, !- Name of File
-        2, !- Column Number
-        4, !- Rows to Skip at Top
-        8760, !- Number of Hours of Data
-        Comma; !- Column Separator'''
         return schedtext
 
     def ep_write_gen_file(self, name, data, newdir):
@@ -9793,6 +9740,8 @@ class No_Au_Sim(Node, ViNodes):
     animated: BoolProperty(name="", description="Animated analysis", default=0, update=nodeupdate)
     startframe: IntProperty(name="", description="Start frame for animation", min=0, default=0, update=nodeupdate)
     endframe: IntProperty(name="", description="End frame for animation", min=0, default=0, update=nodeupdate)
+    netgen: BoolProperty(name="", description="Netgen mesh extraction", update=nodeupdate)
+    collection: StringProperty(description="Select collection", update=nodeupdate)
 
     def init(self, context):
         self['exportstate'] = ''
@@ -9806,21 +9755,27 @@ class No_Au_Sim(Node, ViNodes):
 
     def draw_buttons(self, context, layout):
         if ra:
-            newrow(layout, "Animated:", self, 'animated')
+            newrow(layout, "Solid:", self, 'netgen')
 
-            if self.animated:
-                row = layout.row()
-                row.label(text='Frames:')
-                col = row.column()
-                subrow = col.row(align=True)
-                subrow.prop(self, 'startframe')
-                subrow.prop(self, 'endframe')
+            if self.netgen:
+                layout.prop_search(self, 'collection', bpy.data, 'collections', text='', icon='COLLECTION_COLOR_05')
+            else:    
+                newrow(layout, "Animated:", self, 'animated')
 
-            newrow(layout, "Max order:", self, 'max_order')
-            newrow(layout, "RT rays:", self, 'rt_rays')
-            newrow(layout, "Receiver radius:", self, 'r_radius')
+                if self.animated:
+                    row = layout.row()
+                    row.label(text='Frames:')
+                    col = row.column()
+                    subrow = col.row(align=True)
+                    subrow.prop(self, 'startframe')
+                    subrow.prop(self, 'endframe')
+
+                newrow(layout, "Max order:", self, 'max_order')
+                newrow(layout, "RT rays:", self, 'rt_rays')
+                newrow(layout, "Receiver radius:", self, 'r_radius')
+
             row = layout.row()
-            row.operator('node.rir_sim', text='Generate IR')
+            row.operator('node.rir_sim', text=('Generate IR', 'Generate Mesh')[self.netgen])
         else:
             row = layout.row()
             row.label(text='Pyroomacoustics not found')
@@ -9829,7 +9784,40 @@ class No_Au_Sim(Node, ViNodes):
         for sock in self.outputs:
             socklink(sock, self.id_data.name)
 
-    def presim(self):
+    def presim(self, context, op):
+        if self.netgen and bpy.data.collections.get(self.collection):
+            rm_coll(context, [coll for coll in bpy.data.collections if coll.vi_params.envi_zone])
+            solids = meshes_to_solids(context, bpy.data.collections[self.collection], op)
+            print('solids', len(solids.solids))
+            for si, solid in enumerate(solids):
+                manifold, mesh = solid_to_mesh(context.scene.vi_params, solid, si, op)
+                print('mesh', mesh)
+
+                if not manifold:
+                    op.report({'WARNING'}, f'Zone {si} is not manifold. Some manual editing may be required')
+
+                if f'Zone {si}' not in bpy.data.collections:
+                    z_coll = bpy.data.collections.new(f'Zone {si}')
+                else:
+                    z_coll = bpy.data.collections[f'Zone {si}']
+
+                z_coll.vi_params.envi_zone = 1
+
+                if f'Zone {si}' not in bpy.context.scene.collection.children:
+                    bpy.context.scene.collection.children.link(z_coll)
+
+                if f'Zone {si}' not in [ob.name for ob in bpy.data.objects]:
+                    ob = bpy.data.objects.new(f'Zone {si}', mesh)
+                    ob.data = mesh
+                else:
+                    ob = bpy.data.objects[f'Zone {si}']
+                    ob.data = mesh
+
+                if ob.name not in z_coll.objects:
+                    z_coll.objects.link(ob)
+
+                ob.vi_params.vi_type = '1'
+
         self['coptions'] = {}
         self['goptions'] = {'offset': 0.01}
 
@@ -9921,3 +9909,51 @@ class No_Au_Conv(Node, ViNodes):
     def postsim(self):
         self['exportstate'] = self.ret_params()
         nodecolour(self, 0)
+
+    # def ret_reslists(self, zones):
+    #     reslists = []
+
+    #     for frame in [f[0] for f in self['frames']]:
+    #         for zone in zones:
+    #             for r in self['rl']:
+    #                 if r[2] == zone:
+    #                     if r[3] == 'Heating (W)':
+    #                         heat_kwh = sum([float(h) for h in r[4].split()]) * 0.001
+    #                         aheat_kwh += heat_kwh
+    #                         hours = len(r[4].split())
+    #                     if r[3] == 'Cooling (W)':
+    #                         cool_kwh = sum([float(h) for h in r[4].split()]) * 0.001
+    #                         acool_kwh += cool_kwh
+    #                     elif r[3] == '{} EC (kgCO2e/y)'.format(('Zone', 'Total')[self.zone_menu == 'All']):
+    #                         ec_kgco2e = float(r[4])
+    #                     elif r[3] == 'PV power (W)':
+    #                         pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
+
+    #                 elif r[1] == 'Power' and '_'.join(r[2].split('_')[:-1]) == zone and r[3] == 'PV power (W)':
+    #                     pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
+    #                 elif r[1] == 'Power' and zone == 'All' and r[3] == 'PV power (W)':
+    #                     pv_kwh += sum(float(p) for p in r[4].split()) * 0.001
+    #                 elif r[1] == 'Zone temporal' and zone == 'All' and r[3] == 'Heating (W)':
+    #                     aheat_kwh += sum(float(p) for p in r[4].split()) * 0.001
+    #                 elif r[1] == 'Zone temporal' and zone == 'All' and r[3] == 'Cooling (W)':
+    #                     acool_kwh += sum(float(p) for p in r[4].split()) * 0.001
+
+    #             (heat_kwh, cool_kwh) = (aheat_kwh, acool_kwh) if self.zone_menu == 'All' else (heat_kwh, cool_kwh)
+    #             o_kwh = heat_kwh * 8760/hours * cop + cool_kwh * 8760/hours * self.ac_cop + (self.mod + self.hwmod * hw_cop) * self['res']['fa']
+    #             owlc = o_kwh * self.ec_years * self.carb_fac * (1 + (self.carb_annc * 0.01))**self.ec_years
+    #             ecwlc = ec_kgco2e * self.ec_years
+    #             ofwlc = pv_kwh * self.ec_years * self.carb_fac * (1 + (self.carb_annc * 0.01))**self.ec_years
+    #             wlc = owlc + ecwlc - ofwlc
+
+    #             owlcs.append(owlc)
+    #             ecwlcs.append(ecwlc)
+    #             ofwlcs.append(ofwlc)
+    #             wlcs.append(wlc)
+    #             # reslists.append(['All', 'Frames', 'Frames', 'Frames', ' '.join(['{}'.format(f[0]) for f in self['frames']])])
+    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ' '.join(['{:.3f}'.format()])
+    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ' '.join(['{:.3f}'.format()])])
+    #             # reslists.append(['All', 'Carbon', zone, 'Embodied carbon (kgCO2e)', ])
+
+    # def ret_metrics(self):
+    #     if self.inputs['Results in'].links:
+    #         reslist = self.inputs['Results in'].links[0].from_node['reslists']

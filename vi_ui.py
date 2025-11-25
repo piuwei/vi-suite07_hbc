@@ -18,7 +18,7 @@
 
 import bpy
 from collections import OrderedDict
-from .vi_func import newrow, retdates, logentry, get_materials
+from .vi_func import newrow, retdates, get_materials
 
 
 class VI_PT_3D(bpy.types.Panel):
@@ -34,8 +34,8 @@ class VI_PT_3D(bpy.types.Panel):
         cao = context.active_object
         layout = self.layout
 
-        if cao:
-            covp = cao.vi_params
+        # if cao:
+        #     covp = cao.vi_params
 
         if cao and cao.active_material and cao.active_material.vi_params.get('bsdf'):
             if cao.active_material.vi_params['bsdf'].get('type') and cao.active_material.vi_params['bsdf']['type'] == 'LBNL/Klems Full' and not svp.vi_display:
@@ -81,7 +81,6 @@ class VI_PT_3D(bpy.types.Panel):
                 newrow(layout, "Sun size:", svp, 'sp_sun_size')
                 newrow(layout, "Sun colour:", svp, 'sp_sun_colour')
                 newrow(layout, "Globe colour:", svp, 'sp_globe_colour')
-
                 time_disps = ((("Display time:", "sp_td"), ("Display hours:", "sp_hd")), [("Display hours:", "sp_hd")], [("Display hours:", "sp_hd")])
 
                 for i in time_disps[int(svp['spparams']['suns'])]:
@@ -164,9 +163,6 @@ class VI_PT_3D(bpy.types.Panel):
 
                         row = layout.row()
                         row.label(text="{:-<60}".format(""))
-
-                    # elif context.mode != "EDIT" and svp.vi_disp_process == "2":
-                    #     newrow(layout, 'Placement', svp, "vi_disp_pos")
 
             if svp.vi_display:
                 newrow(layout, 'Display active', svp, 'vi_display')
@@ -259,7 +255,7 @@ class VI_PT_Mat(bpy.types.Panel):
                                     newrow(layout, "k field value:", mvp, "flovi_k_field")
 
                                     if not mvp.flovi_k_field:
-                                        newrow(layout, "k value:", mvp, "flovi_k_val")
+                                        newrow(layout, f"k value ({1.5 * (0.1 * mvp.flovi_u_speed)**2:.3f}):", mvp, "flovi_k_val")
 
                                 if mvp.flovi_k_subtype == 'inletOutlet':
                                     newrow(layout, "k field:", mvp, "flovi_k_field")
@@ -280,7 +276,7 @@ class VI_PT_Mat(bpy.types.Panel):
                                     newrow(layout, "Epsilon field value:", mvp, "flovi_e_field")
 
                                     if not mvp.flovi_e_field:
-                                        newrow(layout, "Epsilon value:", mvp, "flovi_bmbe_val")
+                                        newrow(layout, f"Epsilon value ({0.09**0.75 * mvp.flovi_k_val**1.5 / 10:.3f}):", mvp, "flovi_bmbe_val")
 
                                 elif mvp.flovi_bmbe_subtype == 'inletOutlet':
                                     newrow(layout, "Epsilon field value:", mvp, "flovi_e_field")
@@ -588,7 +584,7 @@ class VI_PT_Col(bpy.types.Panel):
         coll = context.collection
         cvp = coll.vi_params
         layout = self.layout
-        newrow(layout, 'EnVi zone:', context.collection.vi_params, "envi_zone")
+        newrow(layout, 'EnVi/AuVi zone:', context.collection.vi_params, "envi_zone")
 
         try:
             fa = '{:.2f}'.format(context.collection.vi_params['enparams']['floorarea'][str(context.scene.frame_current)])
@@ -702,7 +698,7 @@ class TREE_PT_envim(bpy.types.Panel):
 
             try:
                 icon_val = layout.icon(mat)
-            except:
+            except Exception:
                 icon_val = 1
 
             if mat.users:

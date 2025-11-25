@@ -16,20 +16,20 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bpy_extras, datetime, mathutils, os, bmesh, shutil, sys, shlex, itertools, inspect, aud, multiprocessing, threading, gc
+import bpy, bpy_extras, datetime, mathutils, os, bmesh, shutil, sys, shlex, itertools, inspect, aud, multiprocessing, gc
+from bpy_extras import mesh_utils
 from pathlib import Path
 import subprocess
 import numpy
-from numpy import arange, histogram, array, int8, int16, int32, float16, empty, uint8, transpose, where, ndarray, place, zeros, average, float32, float64, concatenate, ones, array2string, square
+from numpy import arange, histogram, array, int8, int16, int32, float16, transpose, where, ndarray, place, zeros, average, float32, float64, concatenate, ones, square
 from numpy import sum as nsum
 from numpy import max as nmax
 from numpy import mean as nmean
 from scipy import signal
 from scipy.io import wavfile
-from scipy import signal
-# from bpy.types import Timer
+from OpenImageIO import ImageInput
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-from subprocess import Popen, PIPE, call
+from subprocess import Popen, PIPE
 from collections import OrderedDict
 from datetime import datetime as dt
 from math import cos, sin, pi, ceil, tan, radians, log
@@ -38,33 +38,31 @@ from mathutils import Euler, Vector, Matrix
 from mathutils.geometry import distance_point_to_plane
 from xml.dom.minidom import parseString
 from .livi_export import radgexport, createoconv, createradfile, gen_octree, radpoints
-from .envi_export import enpolymatexport, pregeo
+from .envi_export import enpolymatexport, pregeo, solid_pregeo
 from .envi_mat import envi_materials, envi_constructions, envi_embodied, envi_eclasstype
 from .envi_func import write_ec, write_ob_ec
 from .vi_func import selobj, joinobj, solarPosition, viparams, wind_compass
-from .flovi_func import ofheader, fvcdwrite, fvvarwrite, fvsolwrite, fvschwrite, fvtpwrite, fvmtwrite
+from .flovi_func import ofheader, fvcdwrite, fvfuncwrite, fvvarwrite, fvsolwrite, fvschwrite, fvtpwrite, fvmtwrite
 from .flovi_func import fvdcpwrite, write_ffile, write_bound, fvtppwrite, fvgwrite, fvrpwrite, fvprefwrite, oftomesh, fvmodwrite
-from .vi_func import ret_plt, logentry, rettree, cmap, fvprogressfile, cancel_window, qtfvprogress, ret_coll_bb
-from .vi_func import windnum, wind_rose, create_coll, create_empty_coll, move_to_coll, retobjs, progressfile, progressbar
-from .vi_func import chunks, clearlayers, clearscene, clearfiles, objmode, clear_coll, bm_to_stl, qtprogressbar
+from .vi_func import ret_plt, logentry, rettree, cmap, fvprogressfile, cancel_window, qtfvprogress
+from .vi_func import windnum, wind_rose, create_coll, create_empty_coll, move_to_coll, retobjs, progressfile
+from .vi_func import chunks, clearlayers, clearscene, clearfiles, objmode, clear_coll, qtprogressbar, rm_coll, sys_exe
 from .livi_func import retpmap
 from .auvi_func import rir2sti
 from .vi_chart import chart_disp, hmchart_disp, ec_pie, wlc_line, com_line
 from .vi_dicts import rvuerrdict, pmerrdict, flovi_b_dict
-from PySide6.QtWidgets import QApplication
 import OpenImageIO
 OpenImageIO.attribute("missingcolor", "0,0,0")
-from OpenImageIO import ImageInput, ImageBuf
+
 
 if sys.platform != 'win32':
     if multiprocessing.get_start_method() != 'fork':
         multiprocessing.set_start_method('fork', force=True)
 
 try:
-    import netgen
     from netgen import occ
-    from netgen.meshing import MeshingParameters, FaceDescriptor, Element2D, Mesh, MeshingStep  # , BoundaryLayerParameters
-    from pyngcore import SetNumThreads, TaskManager
+    from netgen.meshing import FaceDescriptor, Mesh # , BoundaryLayerParameters
+    from pyngcore import SetNumThreads
 
 except Exception as e:
     print(e)
@@ -85,10 +83,16 @@ except Exception as e:
 try:
     import pyroomacoustics as pra
     pra_rt = True
-    pra.constants.set("num_threads", 8)
+    pra.constants.set("num_threads", pra.parameters.get_num_threads())
     ra = 1
 except Exception:
     ra = 0
+
+try:
+    import psutil
+    psu = 1
+except Exception:
+    psu = 0
 
 docker_path = 'docker'
 
@@ -484,7 +488,7 @@ class NODE_OT_Shadow(bpy.types.Operator):
         calcobs = retobjs('ssc')
 
         if not calcobs:
-            self.report({'ERROR'}, "No objects have a light sensor material attached.")
+            self.report({'ERROR'}, "No objects have a light sensor material attached, or calculation objects have unapplied modifiers.")
             return {'CANCELLED'}
 
         svp['viparams']['visimcontext'] = 'Shadow'
@@ -559,6 +563,7 @@ class NODE_OT_Shadow(bpy.types.Operator):
             bm.transform(o.matrix_world)
             bm.normal_update()
             geom = bm.faces if simnode.cpoint == '0' else bm.verts
+            print('hello')
             geom.layers.int.new('cindex')
             cindex = geom.layers.int['cindex']
             [geom.layers.float.new('sm{}'.format(fi)) for fi in frange]
@@ -747,7 +752,7 @@ class NODE_OT_EcE(bpy.types.Operator):
     bl_label = "Embodied material edit"
 
     def execute(self, context):
-        ob = context.object if context.object else context.collection
+        #ob = context.object if context.object else context.collection
         node = context.node
         # ovp = ob.vi_params
         envi_ecs = envi_embodied()
@@ -796,7 +801,6 @@ class NODE_OT_Li_Geo(bpy.types.Operator):
         svp['viparams']['vidisp'] = ''
         svp['viparams']['viexpcontext'] = 'LiVi Geometry'
         objmode()
-        # clearfiles(svp['liparams']['objfilebase'])
         clearfiles(svp['liparams']['lightfilebase'])
         node = context.node
         node.preexport(scene)
@@ -903,8 +907,10 @@ class OBJECT_OT_Li_GBSDF(bpy.types.Operator):
                     for proc in psutil.process_iter():
                         if 'rcontrib' in proc.name():
                             proc.kill()
+
                 else:
-                    self.report({'ERROR'}, 'psutil not found. Kill rcontrib processes manually')
+                    self.report({'WARNING'}, 'Kill any remaining rcontrib processes manually')
+
                 self.o.vi_params.bsdf_running = 0
                 return {'CANCELLED'}
             else:
@@ -1206,7 +1212,7 @@ class NODE_OT_Li_Pre(bpy.types.Operator, ExportHelper):
                     create_empty_coll(context, 'LiVi Results')
                     gpmbm = bmesh.new()
                     bmesh.ops.create_icosphere(gpmbm, subdivisions=1, radius=0.025, calc_uvs=False)
-                    lvo = len(gpmbm.verts)
+                    # lvo = len(gpmbm.verts)
 
                     if self.simnode.pmapgno:
                         verts_out, faces_out = [], []
@@ -1256,24 +1262,10 @@ class NODE_OT_Li_Pre(bpy.types.Operator, ExportHelper):
 
                     gpmbm.free()
 
-                rvucmd = 'rvu -w {11} {12} {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vo {13:.3f} -va {14:.3f} -vu {10[0]:.3f} {10[1]:.3f} {10[2]:.3f} {5} "{6}-{7}.oct"'.format(
-                    svp["viparams"]["wnproc"],
-                    vv,
-                    cang,
-                    vd,
-                    cam.location,
-                    self.simnode["rvuparams"],
-                    svp["viparams"]["filebase"],
-                    scene.frame_current,
-                    "{}-{}.gpm".format(svp["viparams"]["filebase"], frame),
-                    cpfileentry,
-                    cam.matrix_world.to_quaternion()
-                    @ mathutils.Vector((0, 1, 0)),
-                    ("", "-i")[self.simnode.illu],
-                    gpfileentry,
+                rvucmd = 'rvu -w {10} {11} {8} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vo {13:.3f} -va {14:.3f}  -vu {9[0]:.3f} {9[1]:.3f} {9[2]:.3f} {5} "{6}-{7}.oct"'.format(svp['viparams']['wnproc'], vv, cang, vd, cam.location, self.simnode['rvuparams'], svp['viparams']['filebase'], scene.frame_current,
+                cpfileentry, cam.matrix_world.to_quaternion() @ mathutils.Vector((0, 1, 0)), ('', '-i')[self.simnode.illu], gpfileentry,
                     cam.data.clip_start,
-                    cam.data.clip_end
-                )
+                    cam.data.clip_end )
 
             else:
                 rvucmd = 'rvu -w {9} -n {0} -vv {1:.3f} -vh {2:.3f} -vd {3[0]:.3f} {3[1]:.3f} {3[2]:.3f} -vp {4[0]:.3f} {4[1]:.3f} {4[2]:.3f} -vo {10:.3f} -va {11:.3f} -vu {8[0]:.3f} {8[1]:.3f} {8[2]:.3f} {5} "{6}-{7}.oct"'.format(
@@ -1434,7 +1426,7 @@ class NODE_OT_Li_Sim(bpy.types.Operator):
                     rccmds.append('rcontrib -w -h -I -fo {} -n {} -e MF:{} -f reinhart.cal -b rbin -bn Nrbins -m sky_glow "{}-{}.oct"'.format(self.simnode['radparams'], svp['viparams']['nproc'], rh, svp['viparams']['filebase'], frame))
 
         try:
-            tpoints = [o.vi_params['rtpnum'] for o in bpy.data.objects if o.vi_params.vi_type_string == 'LiVi Calc']
+            tpoints = [o.vi_params['rtpnum'] for o in context.view_layer.objects if o.vi_params.vi_type_string == 'LiVi Calc']
         except Exception as e:
             self.report({'ERROR'}, 'Re-export the LiVi geometry: {}'.format(e))
             return {'CANCELLED'}
@@ -1443,7 +1435,7 @@ class NODE_OT_Li_Sim(bpy.types.Operator):
         pfile = progressfile(svp['viparams']['newdir'], datetime.datetime.now(), calcsteps)
         self.pb = qtprogressbar(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, 'Lighting')
         self.reslists = []
-        obs = [o for o in bpy.data.objects if o.vi_params.vi_type_string == 'LiVi Calc']
+        obs = [o for o in context.view_layer.objects if o.vi_params.vi_type_string == 'LiVi Calc']
 
         for oi, o in enumerate(obs):
             ovp = o.vi_params
@@ -2079,7 +2071,7 @@ class MAT_EnVi_Node_Remove(bpy.types.Operator):
             m = 0
 
             if mvp.envi_nodes:
-                for o in bpy.data.objects:
+                for o in context.view_layer.objects:
                     if mat in [ms.material for ms in o.material_slots]:
                         m = 1
 
@@ -2104,8 +2096,14 @@ class NODE_OT_En_Geo(bpy.types.Operator):
 
         svp['viparams']['vidisp'] = ''
         node = context.node
-        node.preexport(scene)
-        pregeo(context, self)
+
+        if node.netgen and bpy.data.collections.get(node.collection):
+            rm_coll(context, [coll for coll in bpy.data.collections if coll.vi_params.envi_zone])
+            solid_pregeo(context, self, bpy.data.collections[node.collection])
+        else:
+            node.preexport(scene)
+            pregeo(context, self)
+            
         node.postexport()
         return {'FINISHED'}
 
@@ -2544,7 +2542,7 @@ class NODE_OT_EC(bpy.types.Operator):
         # envi_coll = (bpy.data.collections.get('EnVi Geometry') and (o.name not in bpy.data.collections['EnVi Geometry'].all_objects)) or not bpy.data.collections.get('EnVi Geometry')
 
         if node.entities == '0':
-            obs = [o for o in context.scene.objects if o.type == 'MESH' and (o.vi_params.embodied or o.users_collection[0].vi_params.embodied) and o.visible_get() and \
+            obs = [o for o in context.view_layer.objects if o.type == 'MESH' and (o.vi_params.embodied or o.users_collection[0].vi_params.embodied) and o.visible_get() and \
                                                                             ((bpy.data.collections.get('EnVi Geometry') and (o.name not in bpy.data.collections['EnVi Geometry'].all_objects) or not bpy.data.collections.get('EnVi Geometry')))]
 
             for frame in frames:
@@ -2641,7 +2639,7 @@ class NODE_OT_EC(bpy.types.Operator):
 
             for frame in frames:
                 scene.frame_set(frame)
-                tvols = []
+                # tvols = []
 
                 for cob in cobs:
                     ecs, ecys, vols, nmobs = [], [], [], []
@@ -2707,7 +2705,7 @@ class NODE_OT_EC(bpy.types.Operator):
 
                     elif cobs[cob] and len(nmobs) == len(cobs[cob]):
                         logentry(f"All objects in collection {cob} are non-manifold. Embodied energy metrics have not been exported")
-                        self.report({'WARNING'}, f"All objects in collection {c} are non-manifold. Embodied energy metrics have not been exported")
+                        self.report({'WARNING'}, f"All objects in collection {cob} are non-manifold. Embodied energy metrics have not been exported")
 
         if len(frames) > 1:
             obs = [ob.name for ob in obs] if node.entities == '0' else [cob for cob in cobs if cobs[cob]]
@@ -3037,8 +3035,8 @@ class NODE_OT_Flo_Case(bpy.types.Operator):
         dp = bpy.context.evaluated_depsgraph_get()
         scene = context.scene
         svp = scene.vi_params
-        dobs = [o for o in bpy.data.objects if o.vi_params.vi_type == '2' and o.visible_get()]
-        gobs = [o for o in bpy.data.objects if o.vi_params.vi_type == '2' and o.visible_get()]
+        dobs = [o for o in context.view_layer.objects if o.vi_params.vi_type == '2' and o.visible_get()]
+        gobs = [o for o in context.view_layer.objects if o.vi_params.vi_type == '2' and o.visible_get()]
 
         if viparams(self, scene):
             return {'CANCELLED'}
@@ -3120,11 +3118,11 @@ class NODE_OT_Flo_Case(bpy.types.Operator):
 
             if casenode.buoyancy:
                 svp['flparams']['pref'] = casenode.pabsval
-                svp['flparams']['solver'] = 'buoyantFoam'
+                svp['flparams']['solver'] = 'foamRun -solver fluid'
                 svp['flparams']['solver_type'] = 'bf'
                 svp['flparams']['params'] = 'bke'
             else:
-                svp['flparams']['solver'] = 'simpleFoam'
+                svp['flparams']['solver'] = 'foamRun -solver incompressibleFluid'
                 svp['flparams']['pref'] = casenode.pnormval
                 svp['flparams']['solver_type'] = 'sf'
                 svp['flparams']['params'] = 'ke'
@@ -3190,17 +3188,17 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
         self.surf_complete = 0
         self.vol_complete = 0
         self.vol_running = 0
-        case_nodes = [link.from_node for link in self.expnode.inputs['Case in'].links]
+        #case_nodes = [link.from_node for link in self.expnode.inputs['Case in'].links]
         bound_nodes = [link.to_node for link in self.expnode.outputs['Mesh out'].links]
 
-        for node in case_nodes + bound_nodes:
+        for node in bound_nodes:
             node.use_custom_color = 1
 
         self.curcoll = context.collection
         meshcoll = create_coll(context, 'FloVi Mesh')
         clear_coll(context, meshcoll)
         dp = bpy.context.evaluated_depsgraph_get()
-        dobs = [o for o in bpy.data.objects if o.vi_params.vi_type == '2' and o.visible_get() and o.name not in meshcoll.objects]
+        dobs = [o for o in context.view_layer.objects if o.vi_params.vi_type == '2' and o.visible_get() and o.name not in meshcoll.objects]
 
         if not dobs:
             logentry('FloVi requires a domain object but none was found. Check the domain object is not hidden or in the FloVi Mesh collection')
@@ -3211,7 +3209,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
         elif len(dobs) > 1:
             self.report({'WARNING'}, 'More then one domain object found. Only the first is exported')
 
-        gobs = [o for o in bpy.data.objects if o.vi_params.vi_type == '3' and o.visible_get() and o.name not in meshcoll.objects]
+        gobs = [o for o in context.view_layer.objects if o.vi_params.vi_type == '3' and o.visible_get() and o.name not in meshcoll.objects]
         self.obs = dobs + gobs
 
         if any([any(s < 0 for s in o.scale) for o in self.obs]):
@@ -3229,15 +3227,9 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
         else:
             os.environ['LD_LIBRARY_PATH'] = os.path.join(addonpath, 'Python', sys.platform, 'netgen')
 
-        mp = MeshingParameters(maxh=self.expnode.maxcs, minh=0.25 * self.expnode.maxcs, grading=self.expnode.grading,
-                               optsteps2d=self.expnode.optimisations, optsteps3d=self.expnode.optimisations,
-                               delaunay=True, maxoutersteps=self.expnode.maxsteps)
-
         SetNumThreads(int(svp['viparams']['nproc']))
-        mns = [0]
         self.omats = []
-        mats, self.matnames, g_geos = [], [], []
-        pmap1 = {}
+        self.matnames, g_geos = [], []
         totmesh = Mesh()
         totmesh.SetMaterial(1, 'air')
         surf_no = 0
@@ -3360,7 +3352,6 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
                 else:
                     fc = Vector([fc for fc in face.calc_center_bounds()])
                     fn = Vector([fn for fn in face.normal])
-                    evs = [(loop.vert, loop.link_loop_next.vert) for loop in face.loops]
                     vs = [loop.vert for loop in face.loops]
 
                     for v in vs:
@@ -3419,7 +3410,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
                     return {'CANCELLED'}
 
             else:
-                mesh_islands = bpy_extras.mesh_utils.mesh_linked_triangles(ob_mesh)
+                mesh_islands = mesh_utils.mesh_linked_triangles(ob_mesh)
 
                 if len(mesh_islands) > 1:
                     for mi, mesh_island in enumerate(mesh_islands):
@@ -3612,7 +3603,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
             '''.format(int(svp['viparams']['nproc']), self.expnode.maxcs, 0.0, self.expnode.grading,
                        self.expnode.optimisations, self.expnode.maxsteps, svp['flparams']['offilebase'], e_maxs)))
 
-        self.surf_run = Popen(shlex.split('"{}" "{}"'.format(sys.executable, os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
+        self.surf_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
         self.surf_cancel = cancel_window(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, 'Surface Mesh')
         self._timer = context.window_manager.event_timer_add(2, window=context.window)
         context.window_manager.modal_handler_add(self)
@@ -3679,7 +3670,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
                            self.expnode.optimisations)))
 
             self.vol_running = 1
-            self.vol_run = Popen(shlex.split('"{}" "{}"'.format(sys.executable, os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
+            self.vol_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
             self.vol_cancel = cancel_window(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, 'Volume Mesh')
 
         if self.vol_running == 1:
@@ -3804,19 +3795,19 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
                             cpf_cmd = '{} run -it --rm -v "{}":/home/openfoam/data dicehub/openfoam:12 "combinePatchFaces -overwrite -noFunctionObjects -case data {}"'.format(docker_path, frame_offb, 5)
                             Popen(cpf_cmd, shell=True).wait()
 
-                        # if sys.platform == 'linux':
-                        #     cm = Popen(shlex.split('foamExec checkMesh -case {}'.format(frame_offb)), stdout=PIPE)
-                        # elif sys.platform in ('darwin', 'win32'):
-                        #     cm_cmd = 'docker run -it --rm -v "{}":/home/openfoam/data dicehub/openfoam:12 "checkMesh -case data"'.format(frame_offb)
-                        #     cm = Popen(cm_cmd, shell=True, stdout=PIPE)
+                        if sys.platform == 'linux':
+                            cm = Popen(shlex.split('foamExec checkMesh -case {}'.format(frame_offb)), stdout=PIPE)
+                        elif sys.platform in ('darwin', 'win32'):
+                            cm_cmd = 'docker run -it --rm -v "{}":/home/openfoam/data dicehub/openfoam:12 "checkMesh -case data"'.format(frame_offb)
+                            cm = Popen(cm_cmd, shell=True, stdout=PIPE)
 
-                        # for line in cm.stdout:
-                        #     if '***Error' in line.decode():
-                        #         logentry('Mesh errors:{}'.format(line.decode()))
-                        #     elif '*Number' in line.decode() and sys.platform == 'linux':
-                        #         Popen(shlex.split('foamExec foamToVTK -faceSet nonOrthoFaces -case {}'.format(frame_offb)), stdout=PIPE)
-                        #     else:
-                        #         print(line.decode())
+                        for line in cm.stdout:
+                            if '***Error' in line.decode():
+                                logentry('Mesh errors:{}'.format(line.decode()))
+                            elif '*Number' in line.decode() and sys.platform == 'linux':
+                                Popen(shlex.split('foamExec foamToVTK -faceSet nonOrthoFaces -case {}'.format(frame_offb)), stdout=PIPE)
+                            else:
+                                print(line.decode())
 
                         for entry in os.scandir(os.path.join(frame_offb, st, 'polyMesh')):
                             if entry.is_file():
@@ -3883,10 +3874,11 @@ class NODE_OT_Flo_Bound(bpy.types.Operator):
     bl_undo = False
 
     def execute(self, context):
+        dp = context.evaluated_depsgraph_get()
         scene = context.scene
         svp = scene.vi_params
-        dobs = [o for o in bpy.data.objects if o.visible_get() and o.vi_params.vi_type == '2']
-        gobs = [o for o in bpy.data.objects if o.visible_get() and o.vi_params.vi_type == '3']
+        dobs = [o for o in context.view_layer.objects if o.visible_get() and o.vi_params.vi_type == '2']
+        gobs = [o for o in context.view_layer.objects if o.visible_get() and o.vi_params.vi_type == '3']
         obs = dobs + gobs
         boundnode = context.node
         meshnode = boundnode.inputs['Mesh in'].links[0].from_node
@@ -3905,6 +3897,7 @@ class NODE_OT_Flo_Bound(bpy.types.Operator):
         for frame in range(svp['flparams']['start_frame'], svp['flparams']['end_frame'] + 1):
             frame_offb = os.path.join(offb, str(frame))
             frame_ofcfb = os.path.join(frame_offb, 'constant')
+            frame_ofsfb = os.path.join(frame_offb, 'system')
 
             if os.path.isfile(os.path.join(frame_ofcfb, 'polyMesh', 'boundary')):
                 with open(os.path.join(frame_ofcfb, 'polyMesh', 'boundary'), 'r') as bfile:
@@ -3926,6 +3919,8 @@ class NODE_OT_Flo_Bound(bpy.types.Operator):
 
             with open(os.path.join(frame_ofcfb, 'polyMesh', 'boundary'), 'w') as bfile:
                 bfile.write(''.join(lines))
+            with open(os.path.join(frame_ofsfb, 'functions'), 'w') as funcfile:
+                funcfile.write(fvfuncwrite(svp, casenode, dp))
 
         boundnode.post_export()
         return {'FINISHED'}
@@ -3998,7 +3993,7 @@ class NODE_OT_Flo_Sim(bpy.types.Operator):
         with open(self.fpfile, 'w') as fvprogress:
             if self.processes > 1:
                 if sys.platform == 'linux':
-                    self.runs.append(Popen(shlex.split('mpirun --oversubscribe -np {} foamExec {} -parallel -case {}'.format(self.processes,
+                    self.runs.append(Popen(shlex.split('mpirun -np {} foamExec {} -parallel -case {}'.format(self.processes,
                                                                                                                              svp['flparams']['solver'],
                                                                                                                              fframe_offb)), stdout=fvprogress))
                 elif sys.platform in ('darwin', 'win32'):
@@ -4196,12 +4191,16 @@ class NODE_OT_Flo_Sim(bpy.types.Operator):
                     self.simnode['frames'] = [f for f in self.frames]
 
             for oname in svp['flparams']['s_probes']:
-                vfs, times = [], []
+                vfs, times, ps = [], [], []
 
                 if sys.platform == 'linux':
                     vf_run = Popen(shlex.split('foamExec foamPostProcess -func "triSurfaceVolumetricFlowRate(name={0}, triSurface={0}.stl)" -case {1}'.format(oname, frame_coffb)), stdout=PIPE)
+                    # Disable this until I can find a version that works on OS X. For linux this works with OpenFOAM 13
+                    # p_run = Popen(shlex.split('foamExec foamPostProcess -func "triSurfaceAverage(p, name={0}, triSurface={0}.stl)" -case {1}'.format(oname, frame_coffb)), stdout=PIPE)
                 elif sys.platform in ('darwin', 'win32'):
                     vf_run = Popen(f'{docker_path} run -it --rm -v "{frame_coffb}":/home/openfoam/data dicehub/openfoam:12 "foamPostProcess -func triSurfaceVolumetricFlowRate\\(triSurface="{oname}.stl"\\) -case data"', stdout=PIPE, stderr=PIPE, shell=True)
+                    # The below does not seem to work on OS X
+                    # p_run = Popen(f'{docker_path} run -it --rm -v "{frame_coffb}":/home/openfoam/data dicehub/openfoam:12 "foamPostProcess -func triSurfaceAverage\\(trisurface="{oname}.stl", p\\) -case data"', stdout=PIPE, stderr=PIPE, shell=True)
                     
                 if str(frame_c) not in self.o_dict:
                     self.o_dict[str(frame_c)] = {}
@@ -4224,8 +4223,26 @@ class NODE_OT_Flo_Sim(bpy.types.Operator):
 
                     self.o_dict[str(frame_c)][oname]['Q'] = float(vfs[0])
                     self.reslists.append([str(frame_c), 'Probe', oname, 'Volume flow rate', ' '.join(['{}'.format(vf) for vf in vfs[::-1]])])
+                    
+                # Disable below until OS X version works
+                # for line in p_run.stdout.readlines()[::-1]:
+                #     print(line)
+                #     if "p =" in line.decode():
+                #         ps.append(line.decode().split()[-1])
+                
+                # if ps:
+                #     self.reslists.append([str(frame_c), 'Probe', oname, 'Pressure', ' '.join(['{}'.format(p) for p in ps[::-1]])])
+                    # elif 'Time =' in line.decode():
+                    #     ti = line.decode().split()[-1].strip('s')
+                    #     times.append(ti)
 
-            for oname in svp['flparams']['b_probes']:
+            t_probes = []
+            for b_probe in svp['flparams']['b_probes']:
+                t_probes.append(b_probe)
+            for s_probe in svp['flparams']['s_probes']:
+                t_probes.append(s_probe)
+
+            for oname in t_probes:
                 if os.path.isdir(os.path.join(frame_coffb, 'postProcessing', oname + '_vf', '0')):
                     probed = os.path.join(frame_coffb, 'postProcessing', oname + '_vf', '0')
 
@@ -4288,6 +4305,29 @@ class NODE_OT_Flo_Sim(bpy.types.Operator):
 
                     if 'Seconds' not in [r[3] for r in self.reslists]:
                         self.reslists.append([str(frame_c), 'Timestep', 'Probe', 'Seconds', ' '.join(['{}'.format(t) for t in t_res])])
+                
+                if os.path.isdir(os.path.join(frame_coffb, 'postProcessing', f'triSurfaceVolumetricFlowRate(triSurface={oname}.stl)', '0')):
+                    vold = os.path.join(frame_coffb, 'postProcessing', f'triSurfaceVolumetricFlowRate(triSurface={oname}.stl)')
+                    
+                    if 'surfaceFieldValue.dat' in os.listdir(os.path.join(vold)):
+                        t_res = []
+                        q_res = []
+
+                        with open(os.path.join(probed, 'surfaceFieldValue.dat'), 'r') as resfile:
+                            for line in resfile.readlines():
+                                if '# Time' in line:
+                                    q_index = line.split().index('areaNormalIntegrate(U)') - 1
+                                if line and line[0] != '#':
+                                    t_res.append(line.split()[0])
+                                    q_res.append(line.split()[1])
+                        
+                        res_array = array(q_res)
+                        logentry('{} final {} for frame {} at time {} = {:.2f}'.format(oname, resdict['Q'], frame_c, t_res[-1], float(res_array[-1])))
+                        self.o_dict[str(frame_c)][oname]['Q'] = float(res_array[-1])
+                        self.reslists.append([str(frame_c), 'Probe', oname, resdict['Q'], ' '.join(['{:5f}'.format(float(res)) for res in res_array])])
+
+                    if 'Seconds' not in [r[3] for r in self.reslists]:
+                        self.reslists.append([str(frame_c), 'Timestep', 'Probe', 'Seconds', ' '.join(['{}'.format(t) for t in t_res])])
 
             if len(self.runs) < svp['flparams']['end_frame'] - svp['flparams']['start_frame'] + 1:
                 self.pb = qtfvprogress(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, svp['flparams']['et'], str(self.residuals), frame_n)
@@ -4342,6 +4382,7 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
         try:
             room.compute_rir()
             rts = room.measure_rt60(plot=False, decay_db=60)
+            print('res', len(rts))
         except Exception:
             try:
                 rts = room.measure_rt60(plot=False, decay_db=30)
@@ -4380,18 +4421,28 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
             o.vi_params.vi_type_string = ''
 
         simnode = context.node
-        simnode.presim()
+        simnode.presim(context, self)
+
+        if simnode.netgen:
+            return {'FINISHED'}
+
         dp = context.evaluated_depsgraph_get()
-        empties = [o for o in bpy.data.objects if o.type == 'EMPTY' and o.visible_get()]
+        empties = [o for o in context.view_layer.objects if o.type == 'EMPTY' and o.visible_get()]
         sources = [o for o in empties if o.vi_params.auvi_sl == '0']
         simnode['coptions']['au_sources'] = [s.name for s in sources]
         mics = [o for o in empties if o.vi_params.auvi_sl == '1']
-        mic_arrays = [o for o in bpy.data.objects if o.type == 'MESH' and o.material_slots and o.visible_get() and any([o.material_slots[p.material_index].material.vi_params.mattype == '1' for p in o.data.polygons])]
+        mic_arrays = [o for o in context.view_layer.objects if o.type == 'MESH' and o.material_slots and o.visible_get() and any([o.material_slots[p.material_index].material.vi_params.mattype == '1' for p in o.data.polygons if o.material_slots[p.material_index].material])]
 
         for o in mic_arrays:
             (o.vi_params['omax'], o.vi_params['omin'], o.vi_params['oave'], o.vi_params['livires']) = ({}, {}, {}, {})
 
-        robs = [o for o in bpy.data.objects if o.type == 'MESH' and o.visible_get() and any([ms.material.vi_params.mattype == '3' for ms in o.material_slots])]
+        robs = [o.evaluated_get(dp) for o in context.view_layer.objects if o.type == 'MESH' and o.visible_get() and any([ms.material.vi_params.mattype == '3' for ms in o.material_slots if ms.material]) and o.vi_params.vi_type == '1']
+        # robs = [[o for o in c.objects if o.type == 'MESH' and o.visible_get() and any([ms.material.vi_params.mattype == '3' for ms in o.material_slots if ms.material])] for c in bpy.data.collections if c.vi_params.envi_zone]
+        if not robs:
+            logentry('No valid rooms found. Check that the desired room objects have been designated as EnVi/AuVi surfaces and have AuVi materials attached')
+            self.report({'ERROR'}, 'No valid rooms found. Check that the desired room objects have been designated as EnVi/AuVi surfaces and have AuVi materials attached')
+            return {'CANCELLED'}
+
         mats = [mat for mat in bpy.data.materials if mat.vi_params.mattype == '3']
         reslists = []
         frames = [f for f in range(simnode.startframe, simnode.endframe + 1)] if simnode.animated else [scene.frame_current]
@@ -4438,16 +4489,27 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                 amat_scatts = {'coeffs': new_scatts, "center_freqs": c_freqs}
                 amat_dict[mat.name] = pra.Material(energy_absorption=amat_abs, scattering=amat_scatts)
 
-            for rob in robs:
+            for ri, rob in enumerate(robs):
                 walls = []
                 mic_names = []
+                source_names = []
                 room_bm = bmesh.new()
                 room_bm.from_object(rob, dp)
                 room_bm.transform(rob.matrix_world)
                 bmesh.ops.triangulate(room_bm, faces=room_bm.faces)
+                print('bm_vol', room_bm.calc_volume())
 
                 for face in room_bm.faces:
+                    if face.material_index >= len(rob.material_slots):
+                        logentry('Invalid material designation. Object modifiers may need to be applied')
+                        self.report({'ERROR'}, 'Invalid material designation. Object modifiers may need to be applied')
+                        return {'CANCELLED'}
+
                     mat = rob.material_slots[face.material_index].material
+                    if not mat.vi_params.mattype == '3':
+                        logentry(f'Material {mat.name} is not an AuVi material')
+                        self.report({'ERROR'}, f'Material {mat.name} is not an AuVi material')
+                        return {'CANCELLED'}
 
                     if mat.name in amat_dict:
                         poly_vecs = array([v.co for v in face.verts]).T
@@ -4472,7 +4534,7 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                         max_rand_disp=0.1
                     )
                 )
-
+                print('pra volume', room.get_volume())
                 if pra_rt:
                     room.set_ray_tracing(n_rays=simnode.rt_rays, time_thres=10.0, receiver_radius=simnode.r_radius,
                                          hist_bin_size=0.004, energy_thres=1e-08)
@@ -4480,6 +4542,7 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                 for source in sources:
                     if room.is_inside(source.location[:]):
                         room.add_source(source.location[:])
+                        source_names.append(source.name)
 
                 if not room.sources:
                     self.report({'ERROR'}, f'No visible sources inside room {rob.name}')
@@ -4489,6 +4552,8 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                     if room.is_inside(mic.location[:]):
                         room.add_microphone(mic.location[:])
                         mic_names.append(mic.name)
+                
+                r_mics = len(mic_names)
 
                 for mic_a in mic_arrays:
                     mic_bm = bmesh.new()
@@ -4507,12 +4572,14 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                                 if mic_a.vi_params.vi_type_string != 'LiVi Calc':
                                     mic_a.vi_params.vi_type_string = 'LiVi Calc'
 
-                                f[bm_ir] = 1
+                                f[bm_ir] = ri + 1
                                 room = room.add_microphone(f.calc_center_median()[:])
                                 mic_names.append(f'{mic_a.name}-{f.index}')
                             else:
-                                f[bm_ir] = 0
+                                print('not in room', f.index, f.calc_center_median()[:])
+                                f[bm_ir] = f[bm_ir]
                         else:
+                            print('not material', f.index)
                             f[bm_ir] = 0
 
                     mic_bm.transform(mic_a.matrix_world.inverted())
@@ -4533,7 +4600,7 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                         p_manager = multiprocessing.Manager()
                         ir_list = p_manager.list()
 
-                        for m in range(room.n_mics * len(sources)):
+                        for m in range(room.n_mics * len(room.sources)):
                             ir_list.append([])
 
                         q_rts = multiprocessing.Queue()
@@ -4574,7 +4641,7 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                             logentry("Can't get a reliable 60dB reduction. Extrapolating from a 30dB reduction")
                             rts = room.measure_rt60(plot=False, decay_db=30)
 
-                    gc.collect()
+                    #gc.collect()
 
                 except Exception as e:
                     logentry(str(e))
@@ -4583,51 +4650,52 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
 
                 i = 0
                 for mi, mic_rt in enumerate(rts):
-                    if mi < len(mics):
+                    if mi < r_mics:
                         for si, source_rt in enumerate(mic_rt):
-                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {sources[si].name}', 'Seconds', ' '.join([str(s / 16000) for s in range(len(rirs[i]))])])
-                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {sources[si].name}', 'RIR', ' '.join(rirs[i].astype('str'))])
-                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {sources[si].name}', 'RT', f'{source_rt:.3f}'])
-                            resdict[str(frame)][f'{mic_names[mi]} - {sources[si].name}'] = f'{source_rt:.3f}'
+                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {source_names[si]}', 'Seconds', ' '.join([str(s / 16000) for s in range(len(rirs[i]))])])
+                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {source_names[si]}', 'RIR', ' '.join(rirs[i].astype('str'))])
+                            reslists.append([str(frame), 'Probe', f'{mic_names[mi]} - {source_names[si]}', 'RT', f'{source_rt:.3f}'])
+                            resdict[str(frame)][f'{mic_names[mi]} - {source_names[si]}'] = f'{source_rt:.3f}'
                             i += 1
 
-                for si, source in enumerate(sources):
-                    fi = len(mics)
+                for mic_a in mic_arrays:
+                    fi = r_mics
+                    ovp = mic_a.vi_params
+                    mic_bm = bmesh.new()
+                    mic_bm.from_mesh(mic_a.data)
 
-                    for mic_a in mic_arrays:
-                        ovp = mic_a.vi_params
-                        mic_bm = bmesh.new()
-                        mic_bm.from_mesh(mic_a.data)
+                    for si, source in enumerate(room.sources):                    
+                        bm_res = []
 
-                        if not mic_bm.faces.layers.float.get(f'{source.name}_rt{frame}'):
-                            mic_bm.faces.layers.float.new(f'{source.name}_rt{frame}')
-                        if not mic_bm.faces.layers.float.get(f'{source.name}_vol{frame}'):
-                            mic_bm.faces.layers.float.new(f'{source.name}_vol{frame}')
-                        if not mic_bm.faces.layers.float.get(f'{source.name}_sti{frame}'):
-                            mic_bm.faces.layers.float.new(f'{source.name}_sti{frame}')
+                        for fl_name in [f'{source_names[si]}{fl_type}{frame}' for fl_type in ('_rt', '_vol', '_sti')]:
+                            if not mic_bm.faces.layers.float.get(fl_name):
+                                mic_bm.faces.layers.float.new(fl_name)
+                            
+                            bm_res.append(mic_bm.faces.layers.float[fl_name])
 
-                        bm_rtres = mic_bm.faces.layers.float[f'{source.name}_rt{frame}']
-                        bm_volres = mic_bm.faces.layers.float[f'{source.name}_vol{frame}']
-                        bm_stires = mic_bm.faces.layers.float[f'{source.name}_sti{frame}']
                         bm_ir = mic_bm.faces.layers.int['cindex']
 
                         for face in mic_bm.faces:
-                            if face[bm_ir]:
+                            if face[bm_ir] == ri + 1:
                                 try:
-                                    face[bm_rtres] = rts[fi][si]
-                                    face[bm_volres] = 10 * log(nsum(square(rirs[fi * len(sources) + si]) / 16000) / 6E-07, 10)
-                                    face[bm_stires] = rir2sti(rirs[fi * len(sources) + si], room.volume, source.location, mic_a.matrix_world @ face.calc_center_bounds(), octave, 'male', Lsf)
+                                    face[bm_res[0]] = rts[fi][si]
+                                    face[bm_res[1]] = 10 * log(nsum(square(rirs[fi * len(room.sources) + si]) / 16000) / 6E-07, 10)
+                                    face[bm_res[2]] = rir2sti(rirs[fi * len(room.sources) + si], room.volume, source.position, mic_a.matrix_world @ face.calc_center_bounds(), octave, 'male', Lsf)
 
                                 except Exception as e:
                                     print(e)
 
                                 fi += 1
+                            else:
+                                face[bm_res[0]] = 0
+                                face[bm_res[1]] = 0
+                                face[bm_res[2]] = 0
 
-                        res_rt = [face[bm_rtres] for face in mic_bm.faces if face[bm_ir]]
-                        res_vol = [face[bm_volres] for face in mic_bm.faces if face[bm_ir]]
-                        res_sti = [face[bm_stires] for face in mic_bm.faces if face[bm_ir]]
+                        res_rt = [face[bm_res[0]] for face in mic_bm.faces if face[bm_ir] == ri + 1]
+                        res_vol = [face[bm_res[1]] for face in mic_bm.faces if face[bm_ir] == ri + 1]
+                        res_sti = [face[bm_res[2]] for face in mic_bm.faces if face[bm_ir] == ri + 1]
 
-                        if res_rt:
+                        if sum(res_rt):
                             ovp['omax'][f'rt{frame}'] = max(res_rt) if not ovp['omax'].get(f'rt{frame}') or max(res_rt) > ovp['omax'][f'rt{frame}'] else ovp['omax'][f'rt{frame}']
                             ovp['oave'][f'rt{frame}'] = sum(res_rt) / len(res_rt)
                             ovp['omin'][f'rt{frame}'] = min(res_rt) if not ovp['omin'].get(f'rt{frame}') or min(res_rt) < ovp['omin'][f'rt{frame}'] else ovp['omin'][f'rt{frame}']
@@ -4640,11 +4708,12 @@ class NODE_OT_Au_Rir(bpy.types.Operator):
                             ovp['livires'][f'rt{frame}'] = res_rt
                             ovp['livires'][f'vol{frame}'] = res_vol
                             ovp['livires'][f'sti{frame}'] = res_sti
-                            mic_bm.to_mesh(mic_a.data)
+                            
                         else:
                             self.report({'WARNING'}, f'No results on sensor mesh {mic_a.name}')
 
-                        mic_bm.free()
+                    mic_bm.to_mesh(mic_a.data)
+                    mic_bm.free()
 
                 print("Room volume:", f'{room.get_volume():.2f}')
                 print("RT60 (Simulated):", rts[0, 0])
@@ -4711,32 +4780,37 @@ class NODE_OT_Au_Conv(bpy.types.Operator):
     def execute(self, context):
         convnode = context.node
         ir_node = convnode.inputs[0].links[0].from_node
-        fs, audio = wavfile.read(convnode.wavname)
-        odt = audio.dtype
 
-        if len(audio.shape) > 1:
-            audio = nmean(audio, axis=1).astype(odt)
+        if os.path.isfile(convnode.wavname):
+            fs, audio = wavfile.read(convnode.wavname)
+            odt = audio.dtype
 
-        if odt == int16:
-            audio = audio.astype(float32) / 32768
-        elif odt == int32:
-            audio = (audio.astype(float32) / 2147483647)
-        elif odt == float64:
-            audio.astype(float32)
+            if len(audio.shape) > 1:
+                audio = nmean(audio, axis=1).astype(odt)
 
-        if fs != 16000:
-            samples = int(16000 * len(audio) / fs)
-            audio = signal.resample(audio, samples)
-            fs = 16000
+            if odt == int16:
+                audio = audio.astype(float32) / 32768
+            elif odt == int32:
+                audio = (audio.astype(float32) / 2147483647)
+            elif odt == float64:
+                audio.astype(float32)
 
-        for rl in ir_node['reslists']:
-            if f'{rl[0]} - {rl[2]}' == convnode.rir and rl[3] == 'RIR':
-                ir = array([float(s) for s in rl[4].split()]).astype(float32, order='C')
-                break
+            if fs != 16000:
+                samples = int(16000 * len(audio) / fs)
+                audio = signal.resample(audio, samples)
+                fs = 16000
 
-        convnode['convolved_audio'] = []
-        convnode['convolved_audio'] = signal.fftconvolve(audio, ir, mode="full").astype(float32, order='C')
-        convnode.postsim()
+            for rl in ir_node['reslists']:
+                if f'{rl[0]} - {rl[2]}' == convnode.rir and rl[3] == 'RIR':
+                    ir = array([float(s) for s in rl[4].split()]).astype(float32, order='C')
+                    break
+
+            convnode['convolved_audio'] = []
+            convnode['convolved_audio'] = signal.fftconvolve(audio, ir, mode="full").astype(float32, order='C')
+            convnode.postsim()
+        else:
+            self.report({'ERROR'}, 'Sound file cannot be found')
+
         return {'FINISHED'}
 
 
@@ -4748,7 +4822,7 @@ class NODE_OT_Au_Play(bpy.types.Operator):
     bl_undo = False
 
     def execute(self, context):
-        scene = context.scene
+        # scene = context.scene
         self.convnode = context.node
         wm = context.window_manager
         device = aud.Device()
@@ -4765,7 +4839,7 @@ class NODE_OT_Au_Play(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
-        scene = context.scene
+        # scene = context.scene
 
         if not self.convnode.play_o:
             self.handle.stop()
@@ -4786,7 +4860,7 @@ class NODE_OT_Au_Stop(bpy.types.Operator):
     bl_undo = False
 
     def execute(self, context):
-        scene = context.scene
+        # scene = context.scene
         convnode = context.node
         convnode.play_o = False
         convnode.play_c = False
@@ -4801,7 +4875,7 @@ class NODE_OT_Au_PlayC(bpy.types.Operator):
     bl_undo = False
 
     def execute(self, context):
-        scene = context.scene
+        # scene = context.scene
         self.convnode = context.node
         wm = context.window_manager
         device = aud.Device()
@@ -4814,7 +4888,7 @@ class NODE_OT_Au_PlayC(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
-        scene = context.scene
+        # scene = context.scene
 
         if not self.convnode.play_c:
             self.handle.stop()

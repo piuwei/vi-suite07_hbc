@@ -16,16 +16,16 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bpy_extras, os, itertools, subprocess, datetime, shutil, mathutils, bmesh
-from bpy_extras import mesh_utils
-from .vi_func import selobj, facearea, selmesh, create_coll, selobs, logentry, epentry
+import bpy, os, subprocess, datetime, shutil, mathutils, bmesh
+# from bpy_extras import mesh_utils
+from .vi_func import selobj, create_coll, selobs, logentry, epentry, meshes_to_solids, solid_to_mesh, rm_coll
 from .envi_func import get_con_node, boundpoly, get_zone_node, ret_areas, epschedwrite
 
 try:
     from netgen import occ
     from netgen.meshing import MeshingStep
     ng = 1
-except:
+except Exception:
     ng = 0
 
 dtdf = datetime.date.fromordinal
@@ -33,14 +33,14 @@ caidict = {"0": "", "1": "Simple", "2": "Detailed", "3": "TrombeWall", "4": "Ada
 caodict = {"0": "", "1": "SimpleCombined", "2": "TARP", "3": "DOE-2", "4": "MoWiTT", "5": "AdaptiveConvectionAlgorithm"}
 
 
-def en_ec_export():
-    mat_eco2 = 0
-    for ob in bpy.data.objects:
-        for face in ob.polygons:
-            if ob.data.material_slots[face.material_index].material.envi_nodes:
-                for emnode in ob.data.material_slots[face.material_index].material.envi_nodes:
-                    if emnode.bl_idname == 'No_En_Mat_Con' and emnode.active:
-                        mat_co2e += face.area * emnode['ecm2']
+# def en_ec_export():
+#     mat_eco2 = 0
+#     for ob in bpy.data.objects:
+#         for face in ob.polygons:
+#             if ob.data.material_slots[face.material_index].material.envi_nodes:
+#                 for emnode in ob.data.material_slots[face.material_index].material.envi_nodes:
+#                     if emnode.bl_idname == 'No_En_Mat_Con' and emnode.active:
+#                         mat_co2e += face.area * emnode['ecm2']
 
 
 def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
@@ -51,9 +51,7 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
 
     for frame in range(svp['enparams']['fs'], svp['enparams']['fe'] + 1):
         pvs = []
-        gen = 0
         scene.frame_set(frame)
-        # geo_coll = bpy.data.collections['EnVi Geometry']
         geo_colls = geo_coll.children
         gcvp = geo_coll.vi_params
         zone_colls = [gc for gc in geo_colls if gc.vi_params.envi_zone]
@@ -78,7 +76,7 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
                                                                                                                                                    svp['enparams']['epversion']))
         params = ('Name', 'North Axis (deg)', 'Terrain', 'Loads Convergence Tolerance Value', 'Temperature Convergence Tolerance Value (deltaC)',
                   'Solar Distribution', 'Maximum Number of Warmup Days(from MLC TCM)')
-        paramvs = ((node.loc, 'Default')[not node.loc], '0.00', ("City", "Urban", "Suburbs", "Country", "Ocean")[int(node.terrain)], '0.004', '0.4',
+        paramvs = ((node.loc, 'Default')[not node.loc], ('0.00', str(locnode.azimuth))[locnode.north], ("City", "Urban", "Suburbs", "Country", "Ocean")[int(node.terrain)], '0.004', '0.4',
                    ('MinimalShadowing', 'FullExterior', 'FullInteriorAndExterior', 'FullExteriorWithReflections', 'FullInteriorAndExteriorWithReflections')[int(node.solar)], '15')
         en_idf.write(epentry('Building', params, paramvs))
         params = ('Time Step in Hours', 'Algorithm', 'Algorithm', 'Default frequency of calculation', 'no zone sizing, system sizing, plant sizing, no design day, use weather file')
@@ -117,7 +115,7 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
                                     en_idf.write(emnode.ep_write(mat.name, ln))
 
                             if emnode.inputs['PV'].links:
-                                gen = 1
+                                # gen = 1
                                 pvs.append(emnode)
                         else:
                             exp_op.report({'ERROR'}, 'Construction {} has no selected construction'.format(mat.name))
@@ -528,6 +526,306 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
             bpy.data.texts['in{}.idf'.format(frame)].filepath = os.path.join(svp['viparams']['newdir'], 'in{}.idf'.format(frame))
 
 
+def solid_pregeo(context, op, coll):
+    rm_coll(context, [coll for coll in bpy.data.collections if coll.vi_params.envi_zone])
+    solids = meshes_to_solids(context, coll, op)
+
+    for si, solid in enumerate(solids):
+        manifold, mesh = solid_to_mesh(context.scene.vi_params, solid, si, op)
+
+        if manifold:
+            if f'Zone {si}' not in bpy.data.collections:
+                z_coll = bpy.data.collections.new(f'Zone {si}')
+            else:
+                z_coll = bpy.data.collections[f'Zone {si}']
+
+            z_coll.vi_params.envi_zone = 1
+
+            if f'Zone {si}' not in bpy.context.scene.collection.children:
+                bpy.context.scene.collection.children.link(z_coll)
+
+            if f'Zone {si}' not in [ob.name for ob in bpy.data.objects]:
+                ob = bpy.data.objects.new(f'Zone {si}', mesh)
+                ob.data = mesh
+            else:
+                ob = bpy.data.objects[f'Zone {si}']
+                ob.data = mesh
+
+            if ob.name not in z_coll.objects:
+                z_coll.objects.link(ob)
+
+            ob.vi_params.vi_type = '1'
+
+    # dp = context.evaluated_depsgraph_get()
+    # scene = context.scene
+    # svp = scene.vi_params
+    # c_geos = [ob for ob in coll.objects if ob.visible_get()]
+    # g_geos = []
+    # g_names = []
+    # fi = 1
+    # bb_mesh = ret_coll_bb(coll)
+    # bm = bmesh.new()
+    # bm.from_mesh(bb_mesh)
+    # lbm = len(bm.faces)
+    # faces = []
+
+    # for fi, face in enumerate(bm.faces[:lbm]):
+    #     edges = [occ.Segment(occ.gp_Pnt(tuple(loop.vert.co)), occ.gp_Pnt(tuple(loop.link_loop_next.vert.co))) for loop in face.loops]
+    #     wire = occ.Wire(edges)
+    #     f = occ.Face(wire)
+    #     f.name = None
+    #     faces.append(f)
+    #     fi += 1
+
+    # bm.free()
+    # d_geo = occ.OCCGeometry(occ.Compound(faces))
+    # d_geo.Heal(tolerance=0.01)
+
+    # for oi, ob in enumerate(c_geos):
+    #     fi = 0
+    #     faces = []
+    #     bm = bmesh.new()
+    #     bm.from_object(ob, dp)
+    #     bmesh.ops.triangulate(bm, faces=bm.faces)
+    #     bm.transform(ob.matrix_world)
+    #     lbm = len(bm.faces)
+
+    #     for fi, face in enumerate(bm.faces[:lbm]):
+    #         edges = [occ.Segment(occ.gp_Pnt(tuple(round(co, 4) for co in loop.vert.co)), occ.gp_Pnt(tuple(round(co, 4) for co in loop.link_loop_next.vert.co))) for loop in face.loops]
+    #         wire = occ.Wire(edges)
+    #         f = occ.Face(wire)
+
+    #         if len(f.edges) > 2 and ob.material_slots and ob.material_slots[face.material_index].material:
+    #             matname = ob.material_slots[face.material_index].material.name
+    #             f.name = matname
+    #             f.mat(matname)
+    #             f.bc(matname)
+    #             f.layer = oi
+
+    #         faces.append(f)
+    #         fi += 1
+
+    #     g_geo = occ.OCCGeometry(occ.Compound(faces))
+    #     fns = [face.name for face in g_geo.faces]
+    #     fcs = [face.center for face in g_geo.faces]
+    #     print(f'Healing {ob.name}')
+    #     g_geo.Heal(tolerance=0.001)
+
+    #     if None in set([face.name for face in g_geo.shape.faces]):
+    #         for fi, face in enumerate(g_geo.shape.faces):
+    #             if face.name is None:
+    #                 for fci, fc in enumerate(fcs):
+    #                     if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+    #                         face.name = fns[fci]
+    #                         break
+    #                 if face.name is None:
+    #                     face.name = fns[fi]
+
+    #     g_geos.append(g_geo)
+    #     g_names.append(ob.name)
+    #     bm.free()
+
+    # solids = []
+
+    # for gi, g_geo in enumerate(g_geos):
+    #     if len(g_geo.shape.SubShapes(occ.SOLID)) == len(g_geo.shape.SubShapes(occ.SHELL)):
+    #         for g_geo_solid in g_geo.shape.SubShapes(occ.SOLID):
+    #             g_geo_solid.name = g_names[gi]
+    #             solids.append(g_geo_solid)
+
+    #     else:
+    #         for g_shell in g_geo.shape.SubShapes(occ.SHELL):
+    #             g_shell_solid = occ.OCCGeometry(g_shell)
+    #             fns = [face.name for face in g_shell_solid.faces]
+    #             fcs = [face.center for face in g_shell_solid.faces]
+    #             g_shell_solid.Heal(tolerance=0.0001)
+
+    #             if None in set([face.name for face in g_shell_solid.shape.faces]):
+    #                 for fi, face in enumerate(g_shell_solid.shape.faces):
+    #                     if face.name is None:
+    #                         for fci, fc in enumerate(fcs):
+    #                             if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+    #                                 face.name = fns[fci]
+    #                                 break
+    #                         if face.name is None:
+    #                             face.name = fns[fi]
+
+    #             for gs, g_solid in enumerate(g_shell_solid.shape.SubShapes(occ.SOLID)):
+    #                 solids.append(g_solid)
+    #                 print('shell to solid', g_names[gi])
+
+    #             if not g_shell_solid.shape.SubShapes(occ.SOLID):
+    #                 g_shell_solid.shape.WriteStep(os.path.join(svp['viparams']['newdir'], 'temp.step'))
+    #                 g_shell_solid = occ.OCCGeometry(os.path.join(svp['viparams']['newdir'], 'temp.step'))
+    #                 fns = [face.name for face in g_shell_solid.faces]
+    #                 fcs = [face.center for face in g_shell_solid.faces]
+    #                 g_shell_solid.Heal(tolerance=0.0001)
+
+    #                 if None in set([face.name for face in g_shell_solid.shape.faces]):
+    #                     for fi, face in enumerate(g_shell_solid.shape.faces):
+    #                         if face.name is None:
+    #                             for fci, fc in enumerate(fcs):
+    #                                 if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+    #                                     face.name = fns[fci]
+    #                                     break
+    #                             if face.name is None:
+    #                                 face.name = fns[fi]
+
+    #                 for gs, g_solid in enumerate(g_shell_solid.shape.SubShapes(occ.SOLID)):
+    #                     solids.append(g_solid)
+
+    # solids = [occ.Fuse(solids)]
+
+    # for si, solid in enumerate(solids):
+    #     d_geo = d_geo.shape - solid if not si else d_geo - solid
+    #     fns = [face.name for face in d_geo.faces]
+    #     fcs = [face.center for face in d_geo.faces]
+
+    #     if None in set([face.name for face in d_geo.faces]):
+    #         for fi, face in enumerate(d_geo.faces):
+    #             if face.name is None:
+    #                 for fci, fc in enumerate(fcs):
+    #                     if (mathutils.Vector(face.center) - mathutils.Vector(fc)).length < 0.0001:
+    #                         face.name = fns[fci]
+    #                         break
+
+    #                 if face.name is None:
+    #                     face.name = fns[fi]
+
+    # if context.node.write_step:
+    #     d_geo.WriteStep(os.path.join(svp['viparams']['newdir'], 'd_geo.step'))
+
+    # for si, solid in enumerate(d_geo.solids[1:]):
+    #     if any([len(face.wires) > 1 for face in solid.faces]):
+    #         fis, verts, mat_list, vno = [], [], [], 0
+    #         solid.MakeTriangulation()
+    #         solid.WriteBrep(os.path.join(svp['viparams']['newdir'], 'temp.brep'), withTriangles=1)
+
+    #         with open(os.path.join(svp['viparams']['newdir'], 'temp.brep')) as brep_file:
+    #             brep_lines = brep_file.readlines()
+            
+    #         for li, line in enumerate(brep_lines):
+    #             if line.split() and line.split()[0] == 'Triangulations':
+    #                 t_lines = brep_lines[li + 1: li + 1 + 2 * int(line.split()[1])]
+    #                 break
+            
+    #         for li, line in enumerate(t_lines):
+    #             if not li % 2:
+    #                 verts.append(t_lines[li + 1].split()[:int(line.split()[0]) * 3])
+    #                 fis.append([int(f) - 1 + vno for f in t_lines[li + 1].split()[-int(line.split()[1]) * 3:]])
+    #                 vno += int(line.split()[0])
+
+    #                 for m in range(int(line.split()[1])):
+    #                     mat_list.append(solid.faces[int(li/2)].name)
+
+    #         fis = [int(f) for fi in fis for f in fi]
+    #         step_fs = [[fis[i], fis[i + 1], fis[i + 2]] for i in range(len(fis)) if not i % 3]
+    #         vps = [float(v) for p in verts for v in p]
+    #         step_vs = [[vps[i], vps[i + 1], vps[i + 2]] for i in range(len(vps)) if not i % 3]
+            
+    #     else:   
+    #         all_vps = []
+    #         mat_list = [face.name for face in solid.faces]
+
+    #         if mat_list and len(set(mat_list)) > 1:
+    #             for fi, face in enumerate(solid.faces):
+    #                 vps = [tuple(v.p) for v in face.wires[0].vertices]
+
+    #                 if not len(vps) % 2:
+    #                     if vps[0] not in (vps[-2], vps[-1]):
+    #                         vps[0], vps[1] = vps[1], vps[0]
+
+    #                     for vi in [vi for vi in range(1, len(vps) - 1) if vi % 2]:
+    #                         if vps[vi] != vps[vi + 1]:
+    #                             vps[vi + 1], vps[vi + 2] = vps[vi + 2], vps[vi + 1]
+
+    #                     if not all([vps[vi] == vps[vi+1] for vi in range(len(vps) -1) if vi % 2]):
+    #                         evps = [[tuple([round(p, 5) for p in e.start]), tuple([round(p, 5) for p in e.end])] for e in face.edges]
+
+    #                         for evi in range(len(evps) - 1):
+    #                             if evps[evi] not in evps[evi+1] and evps[evi] not in evps[evi+1]:
+    #                                 for vi in range(evi + 2, len(evps)):
+    #                                     if evps[evi][0] in evps[vi] or evps[evi][1] in evps[vi]:
+    #                                         evps[evi + 1], evps[vi] = evps[vi], evps[evi + 1]
+    #                                         break
+
+    #                         for evi in range(len(evps) - 1):
+    #                             if evps[evi][0] in evps[evi + 1]:
+    #                                 evps[evi][0], evps[evi][1] = evps[evi][1], evps[evi][0]
+    #                             if evps[evi + 1][1] in evps[evi]:
+    #                                 evps[evi + 1][0], evps[evi + 1][1] = evps[evi + 1][1], evps[evi + 1][0]
+
+    #                         vps = [x for xs in evps for x in xs]
+
+    #                     all_vps.append([vps[vi] for vi in range(len(vps)) if not vi % 2])
+
+    #             fis = [len(step_v) for step_v in all_vps]
+    #             step_vs = [x for xs in all_vps for x in xs ]
+    #             step_fs = []
+    #             f = 0
+
+    #             for fi in fis:
+    #                 step_fs.append([i for i in range(f, f + int(fi))])
+    #                 f += int(fi)
+
+    #     if f'Zone{si}' not in [mesh.name for mesh in bpy.data.meshes]:
+    #         mesh = bpy.data.meshes.new(f'Zone{si}')
+    #     else:
+    #         mesh = bpy.data.meshes[f'Zone{si}']
+    #         bm = bmesh.new()
+    #         bm.to_mesh(mesh)
+    #         bm.free()
+
+    #     mesh.from_pydata(step_vs, [], step_fs, shade_flat=True)
+    #     bm = bmesh.new()
+    #     bm.from_mesh(mesh)
+    #     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist = 0.00001)
+    #     manifold = all([e.is_manifold for e in bm.edges])
+
+    #     if not manifold:
+    #         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+    #     manifold = all([e.is_manifold for e in bm.edges])
+
+    #     for mi, mat in enumerate(set(mat_list)):
+    #         if mat:
+    #             if len(mesh.materials) < mi + 1:
+    #                 mesh.materials.append(bpy.data.materials[mat])
+    #             else:
+    #                 mesh.materials[mi] = bpy.data.materials[mat]
+
+    #     for poly in bm.faces:
+    #         poly.material_index = list(set(mat_list)).index(mat_list[poly.index])
+
+    #     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    #     bmesh.ops.dissolve_limit(bm, angle_limit=0.1, use_dissolve_boundaries=False, verts=bm.verts, edges=bm.edges, delimit={'NORMAL', 'MATERIAL'})
+    #     bm.to_mesh(mesh)
+    #     bm.free()
+
+    #     if manifold:
+    #         if f'Zone {si}' not in bpy.data.collections:
+    #             z_coll = bpy.data.collections.new(f'Zone {si}')
+    #         else:
+    #             z_coll = bpy.data.collections[f'Zone {si}']
+
+    #         z_coll.vi_params.envi_zone = 1
+
+    #         if f'Zone {si}' not in bpy.context.scene.collection.children:
+    #             bpy.context.scene.collection.children.link(z_coll)
+
+    #         if f'Zone {si}' not in [ob.name for ob in bpy.data.objects]:
+    #             ob = bpy.data.objects.new(f'Zone {si}', mesh)
+    #             ob.data = mesh
+    #         else:
+    #             ob = bpy.data.objects[f'Zone {si}']
+    #             ob.data = mesh
+
+    #         if ob.name not in z_coll.objects:
+    #             z_coll.objects.link(ob)
+
+    #         ob.vi_params.vi_type = '1'
+
+
 def pregeo(context, op):
     scene = context.scene
     svp = scene.vi_params
@@ -576,7 +874,7 @@ def pregeo(context, op):
 
                     if not ob.material_slots:
                         logentry(f'{ob.name} has faces with an unspecified material or an empty material slot')
-                        self.report({'ERROR'}, f'{ob.name} has faces with an unspecified material or an empty material slot')
+                        op.report({'ERROR'}, f'{ob.name} has faces with an unspecified material or an empty material slot')
                         return {'CANCELLED'}
 
                     for face in bm.faces:
@@ -588,7 +886,7 @@ def pregeo(context, op):
                     if not all([e.is_manifold for e in bm.edges]) or not all([v.is_manifold for v in bm.verts]):
                         bm.free()
                         logentry('FloVi error: {} is not manifold'.format(ob.name))
-                        self.report({'ERROR'}, 'FloVi error: {} is not manifold'.format(ob.name))
+                        op.report({'ERROR'}, 'FloVi error: {} is not manifold'.format(ob.name))
                         return {'CANCELLED'}
 
                     for mi, ms in enumerate(ob.material_slots):
@@ -598,7 +896,7 @@ def pregeo(context, op):
                                     b_mats.append(f'{ob.name}_{ms.material.name}')
                                 elif not ms.material:
                                     logentry(f'{ob.name} has faces with an unspecified material or an empty material slot')
-                                    self.report({'ERROR'}, f'{ob.name} has faces with an unspecified material or an empty material slot')
+                                    op.report({'ERROR'}, f'{ob.name} has faces with an unspecified material or an empty material slot')
                                     return {'CANCELLED'}
 
                                 face.index = fi
@@ -656,7 +954,7 @@ def pregeo(context, op):
                 fv_mesh.from_pydata(v_data, [], f_data)
                 nbm = bmesh.new()
                 nbm.from_mesh(fv_mesh)
-                nm_v = [v for v in nbm.verts if not v.is_manifold]
+                #nm_v = [v for v in nbm.verts if not v.is_manifold]
                 fv_obj = bpy.data.objects.new('floviMesh', fv_mesh)
                 scene.collection.objects.link(fv_obj)
 

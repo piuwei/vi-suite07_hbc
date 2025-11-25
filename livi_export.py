@@ -153,7 +153,7 @@ def radgexport(export_op, node):
 
     for o in geooblist + caloblist:
         for m in o.data.materials:
-            if m not in mats:
+            if m and m not in mats:
                 mats.append(m)
 
                 if m.vi_params.li_norm:
@@ -161,7 +161,7 @@ def radgexport(export_op, node):
 
                     if not os.path.isfile(os.path.join(svp['liparams']['texfilebase'], norm.name + '.ddx')) or node.texs:
                         (w, h) = norm.size
-                        ar = ('*{}'.format(w/h), '') if w >= h else ('', '*{}'.format(h/w))
+                        # ar = ('*{}'.format(w/h), '') if w >= h else ('', '*{}'.format(h/w))
                         normpixels = zeros(norm.size[0] * norm.size[1] * 4, dtype='float32')
                         norm.pixels.foreach_get(normpixels)
                         header = '2\n0 1 {}\n0 1 {}\n'.format(norm.size[1], norm.size[0])
@@ -229,7 +229,6 @@ def radgexport(export_op, node):
                 if frame == frames[0]:
                     clearlayers(bm, 'a')
                     geom.layers.int.new('cindex')
-                    #o.vi_params['cpoint'] = node.cpoint
 
                 geom.layers.string.new('rt{}'.format(frame))
                 ovp.rtpoints(bm, node.offset, node.cpoint, str(frame))
@@ -401,12 +400,13 @@ def livi_sun(scene, node, frame):
 
 def hdrexport(scene, f, frame, node, skytext):
     svp = scene.vi_params
+    vd = "0 1 0" if not svp['viparams'].get('North') else ' '.join([str(d) for d in svp['viparams'].get('North')])
 
     with open('{}-{}sky.oct'.format(svp['viparams']['filebase'], frame), 'w') as skyoct:
         Popen('oconv -w -'.split(), stdin=PIPE, stdout=skyoct).communicate(input=skytext.encode('utf-8'))
 
     with open(os.path.join(svp['viparams']['newdir'], str(frame)+".hdr"), 'w') as hdrfile:
-        rpictcmd = 'rpict -vta -vp 0 0 0 -vd 0 1 0 -vu 0 0 1 -vh 360 -vv 360 -x 1500 -y 1500 "{}-{}sky.oct"'.format(svp['viparams']['filebase'], frame)
+        rpictcmd = 'rpict -vta -vp 0 0 0 -vd {} -vu 0 0 1 -vh 360 -vv 360 -x 1500 -y 1500 "{}-{}sky.oct"'.format(vd, svp['viparams']['filebase'], frame)
         Popen(shlex.split(rpictcmd), stdout=hdrfile).communicate()
 
     cntrun = Popen('cnt 750 1500'.split(), stdout=PIPE)
