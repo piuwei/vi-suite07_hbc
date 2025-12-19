@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Initialize variables
-prefix="vi-suite07"
+prefix="vi-suite07_hbc"
 branch="hbc_downstream"  # Using a variable for the branch
 full_archive=false
 tiny_archive=false
