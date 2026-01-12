@@ -1,5 +1,7 @@
 #! /bin/bash
 
+# EXAMPLE SCRIPT to install Python Dependencies for VI-Suite
+
 # finding the path where blender gets modules from:
 # in Blender console
 # bpy.utils.user_resource("SCRIPTS", path="modules")
