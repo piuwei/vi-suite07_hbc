@@ -941,6 +941,7 @@ class No_Li_Im(Node, ViNodes):
     validparams: BoolProperty(name='', default=True)
     mp: BoolProperty(name='', default=False, update=nodeupdate)
     camera: StringProperty(description="Select camera", update=nodeupdate)
+    camera_clip: BoolProperty(name='', default=False)
     fisheye: BoolProperty(name='', default=0, update=nodeupdate)
     fov: FloatProperty(name='', default=180, min=1, max=360, update=nodeupdate)
     processors: IntProperty(name='', default=1, min=1, max=128, update=nodeupdate)
@@ -968,6 +969,7 @@ class No_Li_Im(Node, ViNodes):
         layout.prop_search(self, 'camera', bpy.data, 'cameras', text='Camera', icon='NONE')
 
         if all([sock.links for sock in self.inputs]) and self.camera:
+            newrow(layout, 'Camera clip:', self, 'camera_clip')
             newrow(layout, 'Base name:', self, 'basename')
             newrow(layout, 'Illuminance:', self, 'illu')
             newrow(layout, 'Fisheye:', self, 'fisheye')
@@ -1286,6 +1288,7 @@ class No_Li_Sim(Node, ViNodes):
     validparams: BoolProperty(name='', default=True)
     illu: BoolProperty(name='', default=False)
     camera: EnumProperty(items=ret_camera_menu, name='', description='Camera')
+    camera_clip: BoolProperty(name='', default=False)
     new_res: BoolProperty(name='', default=False)
 
     def init(self, context):
@@ -1329,9 +1332,12 @@ class No_Li_Sim(Node, ViNodes):
                         if not any([n.use_custom_color for n in (self.inputs[0].links[0].from_node, self.inputs[1].links[0].from_node)]):
                             if cinnode['Options']['Preview']:
                                 row = layout.row()
+                                row.label(text="Camera:")
                                 row.prop(self, "camera")
 
                                 if self.camera != 'None':
+                                    newrow(layout, 'Camera clip:', self, 'camera_clip')
+                                    row = layout.row()
                                     row.operator("node.radpreview", text='Preview')
 
                             if [o for o in scene.objects if o.vi_params.vi_type_string == 'LiVi Calc']:
@@ -6622,9 +6628,11 @@ class No_En_Net_EMSZone(Node, EnViNodes):
 
                     for emnode in mat.vi_params.envi_nodes.nodes:
                         if emnode.bl_idname == 'No_En_Mat_Con' and emnode.active and emnode.envi_afsurface and emnode.envi_con_type in ('Window', 'Door', 'Wall', 'Roof'):
-                            if emnode.envi_con_type in ('Window', 'Door') and self.acttype == '0':
+                            if emnode.envi_con_type in ('Window', 'Door'):
+                                self.acttype = '0'
                                 sssocklist.append('{}_{}_{}_{}'.format(adict[emnode.envi_con_type], self.emszone, face.index, self.actdict[self.acttype][1]))
-                            elif emnode.envi_con_type in ('Wall', 'Roof') and self.acttype == '1':
+                            elif emnode.envi_con_type in ('Wall', 'Roof'):
+                                self.acttype = '1'
                                 sssocklist.append('{}_{}_{}'.format(self.emszone, face.index, self.actdict[self.acttype][1]))
 
         self.inputs[0].hide = False
@@ -9788,10 +9796,9 @@ class No_Au_Sim(Node, ViNodes):
         if self.netgen and bpy.data.collections.get(self.collection):
             rm_coll(context, [coll for coll in bpy.data.collections if coll.vi_params.envi_zone])
             solids = meshes_to_solids(context, bpy.data.collections[self.collection], op)
-            print('solids', len(solids.solids))
+
             for si, solid in enumerate(solids):
                 manifold, mesh = solid_to_mesh(context.scene.vi_params, solid, si, op)
-                print('mesh', mesh)
 
                 if not manifold:
                     op.report({'WARNING'}, f'Zone {si} is not manifold. Some manual editing may be required')
