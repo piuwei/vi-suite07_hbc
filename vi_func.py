@@ -2146,24 +2146,23 @@ def sockhide(node, lsocknames):
     except Exception as e:
         print('sockhide', e)
 
-
 def socklink(sock, ng):
     if ng in [g.name for g in bpy.data.node_groups]:
         try:
-            valid1 = sock.valid # if not sock.get('valid') else sock['valid']
-
+            valid1 = set(sock.valid) # if not sock.get('valid') else sock['valid']
             for link in sock.links:
-                valid2 = link.to_socket.valid # if not link.to_socket.get('valid') else link.to_socket['valid']
-                valset = set(valid1) & set(valid2)
-
-                if not valset or len(valset) < min((len(valid1), len(valid2))):
+                valid2 = set(link.to_socket.valid) # if not link.to_socket.get('valid') else link.to_socket['valid']
+                smaller, larger = (valid1, valid2) if len(valid1) <= len(valid2) else (valid2, valid1)
+                valset = valid1 & valid2
+                # print(f"{valid1=}, {valid2=}, {valset=}")
+                
+                if not smaller.issubset(larger):
                     bpy.data.node_groups[ng].links.remove(link)
-
+                    
         except Exception as e:
             print(e)
             if sock.links:
                 bpy.data.node_groups[ng].links.remove(sock.links[-1])
-
 
 def socklink2(sock, ng):
     try:
