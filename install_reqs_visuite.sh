@@ -14,7 +14,7 @@ sudo apt install python3.11-dev
 
 BLENDER_VERSION="4.4"
 
-python3.11 -m pip install matplotlib kivy openimageio pyside6 --target="/home/pius/.config/blender/$BLENDER_VERSION/scripts/modules"
+python3.11 -m pip install matplotlib openimageio pyside6 --target="/home/pius/.config/blender/$BLENDER_VERSION/scripts/modules"
 python3.11 -m pip install pyroomacoustics --target="/home/pius/.config/blender/$BLENDER_VERSION/scripts/modules"
 python3.11 -m pip install scipy --target="/home/pius/.config/blender/$BLENDER_VERSION/scripts/modules"
 
