@@ -1781,6 +1781,7 @@ class No_En_Con(Node, ViNodes):
         nodecolour(self, self['exportstate'] != [str(x) for x in (self.loc, self.terrain, self.timesteps, self.animated, self.fs, self.fe, self.sdoy, self.edoy)])
 
     animated: BoolProperty(name="", description="Animated analysis", update=nodeupdate)
+    idf_extended_outputs: BoolProperty(name="", description="Add Outputs to IDF:\nOutput:EnergyManagementSystem, Verbose, Verbose, ErrorsOnly;\nOutput:Diagnostics,DisplayExtrawarnings;\nOutput:VariableDictionary, IDF;\nOutputControl:Table:Style, HTML;", update=nodeupdate, default=True)
     fs: IntProperty(name="", description="Start frame", default=0, min=0, update=nodeupdate)
     fe: IntProperty(name="", description="End frame", default=0, min=0, update=nodeupdate)
     loc: StringProperty(name="", description="Identifier for this project", default="", update=nodeupdate)
@@ -1882,6 +1883,8 @@ class No_En_Con(Node, ViNodes):
 
         # if self.restype == '5':
         #     newrow(layout, 'Apply to faces', self, "sta")
+
+        newrow(layout, 'Extended Output:', self, 'idf_extended_outputs')
 
         if all([s.links for s in self.inputs]) and not any([s.links[0].from_node.use_custom_color for s in self.inputs]):
             row = layout.row()

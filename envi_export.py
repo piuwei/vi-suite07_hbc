@@ -513,6 +513,17 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
 
         en_idf.write("Output:Table:SummaryReports,\
         AllSummary;              !- Report 1 Name")
+
+        if node.idf_extended_outputs:
+            extra_outputs = """
+Output:EnergyManagementSystem, Verbose, Verbose, ErrorsOnly;
+Output:Diagnostics,DisplayExtrawarnings;
+Output:VariableDictionary, IDF;
+OutputControl:Table:Style, HTML;
+"""
+
+            en_idf.write(extra_outputs)
+
         en_idf.close()
 
         if svp['enparams'].get('hvactemplate'):
