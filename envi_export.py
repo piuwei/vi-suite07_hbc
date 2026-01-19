@@ -473,6 +473,7 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
                        "Output:Variable,*,Zone Air CO2 Concentration,hourly;\n": node.resco2 and not enng['enviparams']['afn'],
                        "Output:Variable,*,Zone Mean Radiant Temperature,hourly;\n": node.resmrt,
                        "Output:Variable,*,Zone People Occupant Count,hourly;\n": node.resocc,
+                       "Output:Variable,*,Zone Operative Temperature,hourly;\n": node.resort,
                        "Output:Variable,*,Zone Air Relative Humidity,hourly;\n": node.resh,
                        "Output:Variable,*,Zone Air Heat Balance Surface Convection Rate, hourly;\n": node.resfhb,
                        "Output:Variable,*,Generator Produced DC Electricity Energy,hourly;\n": node.respve,

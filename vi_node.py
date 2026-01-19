@@ -1824,6 +1824,7 @@ class No_En_Con(Node, ViNodes):
     resl12ms: bpy.props.BoolProperty(name=u'Flow (m\u00b3/s)', description=u'Linkage flow (m\u00b3/s)', default=False)
     reslof: bpy.props.BoolProperty(name='Opening factor', description='Linkage opening factor', default=False)
     resmrt: bpy.props.BoolProperty(name='MRT', description='Mean radiant temperature (degC)', default=False)
+    resort: bpy.props.BoolProperty(name='ORT', description='Operative Room Temperature (degC)', default=False)
     resocc: bpy.props.BoolProperty(name='Occupancy', description='Zone occupancy', default=False)
     resh: bpy.props.BoolProperty(name='Humidity', description='Zone humidity (%)', default=False)
     resfhb: bpy.props.BoolProperty(name='Heat balance', description='Fabric heat balance (W)', default=False)

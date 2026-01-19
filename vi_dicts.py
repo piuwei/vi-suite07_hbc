@@ -82,7 +82,7 @@ rnu = {'0': ("Air", "Ambient air metrics"), '1': ("Wind Speed", "Ambient Wind Sp
        '29': ("Out temp.", "Thermal chimney outlet temperature (C)"), '30': ("Heat loss", "Thermal chimney heat loss (W)"), '31': ("Heat gain", "Thermal chimney heat gain (W)"),
        '32': ("Volume", "Thermal chimnwey volume (m3)"), '33': ("Mass", "Thermal chimney mass (kg)"), '34': ('delta P', 'Linkage Pressure Differential (Pa)'),
        '35': ('Equipment', 'Other equipment heat gains (W)'), '36': ('PV Energy', 'PV energy (J)'), '37': ('PV Power', 'PV power (W)'),
-       '38': ('PV Temp.', 'PV Temperature (C)'), '39': ('PV Eff.', 'PV efficiency (%)')}
+       '38': ('PV Temp.', 'PV Temperature (C)'), '39': ('PV Eff.', 'PV efficiency (%)'), '40': ("ORT (C)", "Operative Room Temperature (C)")}
 
 arnu = {'0': (u"Max temp (\u2103)", "Maximum zone temperature"), '1': (u"Min temp (\u2103)", "Minimum zone temperature"), '2': (u"Avg temp (\u2103)", "Average zone temperature"),
         '3': ("Max heating (W)", "Max Zone heating"), '4': ("Min heating (W)", "Min Zone heating"), '5': ("Avg heating (W)", "Avg Zone heating"),
@@ -120,7 +120,8 @@ zresdict = {'Zone Air Temperature [C] !Hourly': "Temperature (degC)",
             'Zone Thermal Comfort Fanger Model PMV [] !Hourly': 'PMV',
             'AFN Node CO2 Concentration [ppm] !Hourly': 'CO2 (ppm)',
             'Zone Air CO2 Concentration [ppm] !Hourly': 'CO2 (ppm)',
-            'Zone Mean Radiant Temperature [C] !Hourly': 'MRT',
+            'Zone Mean Radiant Temperature [C] !Hourly': 'MRT (degC)',
+            'Zone Operative Temperature [C] !Hourly': 'ORT (degC)',
             'Zone People Occupant Count [] !Hourly': 'Occupancy',
             'Zone Air Heat Balance Surface Convection Rate [W] !Hourly': 'Heat balance (W)',
             'Zone Air Heat Balance Internal Convective Heat Gain Rate [W] !Hourly': 'Internal heat balance (W)',
