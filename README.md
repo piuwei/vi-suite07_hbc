@@ -2,6 +2,13 @@
 
 VI-Suite release for Blender 4.4 (experimental)
 
+installierte Version patchen (bsp. Linux)
+
+```sh
+cd ~/repos/vi-suite07_hbc
+cp -u *.py ~/.config/blender/5.0/scripts/addons/vi-suite07_26-01_hbc/
+```
+
 ## hbc downstream branch
 
 - use `bash create_archives.sh` for archive creation
@@ -73,6 +80,13 @@ python3.13 -m pip install OpenImageIO --break-system-packages
 ```
 
 ## TODO
+
+### Energetische Simulation mit EnVi
+
+- [x] Operative Raumtemperatur als Output ergänzen
+- [x] Zusätzliche Outputs: rdd, edd und HTML
+
+### Verteilung und Installation
 
 - [ ] VI-Suite als Extension mit Wheels builden ?
 - [ ] Windows Install Skript bearebiten und testen mit Download nach U:\, entpacken nach %USERPROFILE% ... damit dürfte alles dann bei wiederholter Nutzung sehr schnell gehen

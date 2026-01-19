@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # Initialize variables
-prefix="vi-suite07_26-01"
+prefix="vi-suite07_hbc_260119"
 branch="hbc_downstream"
 full_archive=false
 tiny_archive=false
@@ -83,7 +83,7 @@ fi
 
 if [[ "$full_archive" == true ]]; then
   echo "Creating full archive..."
-  git archive --format=zip --prefix="$prefix"_hbc/ -o assets/"$prefix"_"$branch"_full.zip "$branch"
+  git archive --format=zip --prefix="$prefix"/ -o assets/"$prefix"_"$branch"_full.zip "$branch"
 fi
 
 if [[ "$tiny_archive" == true ]]; then
