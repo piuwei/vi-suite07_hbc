@@ -32,10 +32,10 @@ from .livi_func import hdrsky, cbdmhdr, cbdmmtx, retpmap, validradparams, sunpos
 from .envi_func import enresprops, epschedwrite, processf, get_mat, get_con_node
 from .livi_export import livi_sun, livi_sky, livi_ground, hdrexport
 from .envi_mat import envi_materials, envi_constructions, envi_embodied, envi_layer, envi_layertype, envi_elayertype, envi_eclasstype, envi_emattype
-from .flovi_func import ret_fvb_menu, ret_fvbp_menu, ret_fvbu_menu, ret_fvbnut_menu, ret_fvbk_menu, ret_fvbepsilon_menu, ret_fvba_menu, ret_fvbt_menu, ret_fvbprgh_menu
+from .flovi_func import ret_fvb_menu, ret_fvbp_menu, ret_fvbu_menu, ret_fvbnut_menu, ret_fvbk_menu, ret_fvbepsilon_menu, ret_fvba_menu, ret_fvbt_menu, ret_fvbprgh_menu, ret_of_docker
 from numpy import array, stack, where, unique
 from numpy import sum as nsum
-from .vi_dicts import rpictparams, rvuparams, rtraceparams, rtracecbdmparams
+from .vi_dicts import rpictparams, rvuparams, rtraceparams, rtracecbdmparams, rcontribpmparams
 cur_dir = os.getcwd()
 
 try:
@@ -54,31 +54,10 @@ except Exception:
 
 ofoam = 0
 
-try:
-    if sys.platform in ('darwin', 'win32'):
-        if sys.platform == 'darwin':
-            if os.path.isfile('/usr/local/bin/docker'):
-                dck_run = Popen(shlex.split('/usr/local/bin/docker images'), stdout=PIPE)
-
-            elif os.path.islink(f'{Path.home()}/.docker/bin/docker'):
-                dck_run = Popen(shlex.split(f'{Path.home()}/.docker/bin/docker images'), stdout=PIPE)
-
-            else:
-                dck_run = ''
-
-        else:
-            dck_run = Popen('docker images', shell=True, stdout=PIPE)
-
-        if dck_run:
-            for line in dck_run.stdout.readlines():
-                lds = line.decode().split()
-                # Below is required to register the lines
-                print(lds[0], lds[1])
-
-                if lds[0] == 'dicehub/openfoam' and lds[1] == '12':
-                    ofoam = 1
-except Exception as e:
-    print(e)
+if not ret_of_docker():
+    ofoam = 0
+else:
+    ofoam = 1
 
 flo_libs = [ng, ofoam]
 os.chdir(cur_dir)
@@ -137,15 +116,14 @@ class No_Loc(Node, ViNodes):
 
     def update_north(self, context):
         nvec = mathutils.Vector((0.0, 1.0, 0.0))
-        
+
         if self.north:
             nvec.rotate(mathutils.Euler((0.0, 0.0, -math.radians(self.azimuth)), 'XYZ'))
-        
+
             if not context.scene.vi_params.get('viparams'):
                 context.scene.vi_params['viparams'] = {}
-            
-        context.scene.vi_params['viparams']['North'] = nvec
 
+        context.scene.vi_params['viparams']['North'] = nvec
 
     def updatelatlong(self, context):
         context.space_data.edit_tree == ''
@@ -215,9 +193,12 @@ class No_Loc(Node, ViNodes):
                         reslists.append(['0', 'Climate', 'Exterior', c[0], ' '.join([cdata for cdata in list(epwcolumns[c[1]])])])
 
                     self['epwtext'] = epwfile.read()
-                    self.outputs['Location out'].valid.append('Vi Results')
+
+                    if 'Vi Results' not in self.outputs['Location out'].valid:
+                        self.outputs['Location out'].valid.append('Vi Results')
             else:
                 self['epwtext'] = ''
+
                 if 'Vi Results' in self.outputs['Location out'].valid:
                     self.outputs['Location out'].valid.remove('Vi Results')
 
@@ -432,7 +413,7 @@ class No_Li_Con(Node, ViNodes):
             else:
                 bpy.ops.object.light_add(type='SUN')
                 sun = bpy.context.object
-                
+
                 if sun:
                     sun['VIType'] = 'Sun'
 
@@ -461,8 +442,8 @@ class No_Li_Con(Node, ViNodes):
     epsilon: FloatProperty(name="", description="Sky epsilon", min=1, max=8, default=6.3, options={'SKIP_SAVE'}, update=nodeupdate)
     delta: FloatProperty(name="", description="Sky delta", min=0.05, max=0.5, default=0.15, options={'SKIP_SAVE'}, update=nodeupdate)
     skymenu: EnumProperty(name="", items=skylist, description="Specify the type of sky for the simulation", default="0", update=nodeupdate)
-    gref: FloatProperty(name="", description="Ground reflectance", min=0.0, max=1.0, default=0.0, options={'SKIP_SAVE'}, update=nodeupdate)
-    gcol: FloatVectorProperty(size=3, name='', description="Ground colour", attr='Color', default=[0, 1, 0], subtype='COLOR', options={'SKIP_SAVE'}, update=nodeupdate)
+    # gref: FloatProperty(name="", description="Ground reflectance", min=0.0, max=1.0, default=0.0, options={'SKIP_SAVE'}, update=nodeupdate)
+    gcol: FloatVectorProperty(size=3, name='', description="Ground colour", attr='Color', default=[0.2, 0.2, 0.2], subtype='COLOR', options={'SKIP_SAVE'}, update=nodeupdate)
     sdist: FloatProperty(name="", description="Blender sun distance", min=0.0, default=50.0, update=nodeupdate)
     shour: FloatProperty(name="", description="Start hour of simulation", min=0, max=23.99, default=12, subtype='TIME', unit='TIME', options={'ANIMATABLE'}, update=nodeupdate)
     sdoy: IntProperty(name="", description="Start day of simulation", min=1, max=365, default=1, update=nodeupdate)
@@ -493,7 +474,7 @@ class No_Li_Con(Node, ViNodes):
     cbdm_shour: IntProperty(name='', description="Hour of the day (1 being the first hour: midnight to 1am)", default=8, min=0, max=23, update=nodeupdate)
     cbdm_ehour: IntProperty(name='', description="Hour of the day (24 being the last hour: 11pm to midnight)", default=18, min=0, max=23, update=nodeupdate)
     cbdm_edoy: IntProperty(name="", description="End day of simulation", min=1, max=365, default=365, update=nodeupdate)
-    cbdm_res: IntProperty(name='', default=1, min=1, max=12, update=nodeupdate)
+    cbdm_res: IntProperty(name='', default=1, min=1, max=3, update=nodeupdate)
     dalux: IntProperty(name='lux', default=300, min=1, max=2000, update=nodeupdate)
     damin: IntProperty(name='lux', default=100, min=1, max=2000, update=nodeupdate)
     dasupp: IntProperty(name='lux', default=300, min=1, max=2000, update=nodeupdate)
@@ -536,7 +517,7 @@ class No_Li_Con(Node, ViNodes):
 
             if self.skyprog == '0':
                 newrow(layout, "Sky type:", self, 'skymenu')
-                newrow(layout, "Ground ref:", self, 'gref')
+                # newrow(layout, "Ground ref:", self, 'gref')
                 newrow(layout, "Ground col:", self, 'gcol')
 
                 if self.skymenu in ('0', '1', '2'):
@@ -561,7 +542,6 @@ class No_Li_Con(Node, ViNodes):
                 newrow(layout, 'Colour sky', self, "colour")
                 newrow(layout, "Epsilon:", self, 'epsilon')
                 newrow(layout, "Delta:", self, 'delta')
-                newrow(layout, "Ground ref:", self, 'gref')
                 newrow(layout, "Ground col:", self, 'gcol')
                 newrow(layout, "Start hour {}:{}:".format(int(self.shour), int((self.shour * 60) % 60)), self, 'shour')
                 newrow(layout, 'Start day {}/{}:'.format(sdate.day, sdate.month), self, "sdoy")
@@ -614,6 +594,7 @@ class No_Li_Con(Node, ViNodes):
 
                     if self.sourcemenu2 == '0':
                         newrow(layout, "Spectrum:", self, 'spectrummenu')
+                        newrow(layout, 'Resolution:', self, 'cbdm_res')
 
                     if self.sourcemenu2 == '1':
                         newrow(layout, "MTX file:", self, 'mtxname')
@@ -628,6 +609,7 @@ class No_Li_Con(Node, ViNodes):
                     newrow(layout, 'End hour:', self, 'cbdm_ehour')
 
             if self.cbanalysismenu == '2':
+                newrow(layout, 'Resolution:', self, 'cbdm_res')
                 newrow(layout, 'Metric:', self, 'metric')
 
                 if self.metric == '0':
@@ -656,6 +638,7 @@ class No_Li_Con(Node, ViNodes):
                 newrow(layout, 'Views:', self, 'dgp_views')
                 newrow(layout, 'Azimuth:', self, 'dgp_azi')
 
+            newrow(layout, "Ground col:", self, 'gcol')
             # if self.cbanalysismenu != '0':
             #     newrow(layout, 'HDR:', self, 'hdr')
 
@@ -710,8 +693,8 @@ class No_Li_Con(Node, ViNodes):
                 if self.cbdm_ehour < 16:
                     self.cbdm_ehour = 16
 
-            if self.cbanalysismenu == '0' or self.hdr:
-                self.cbdm_res = 2 if self.cbdm_res > 2 else self.cbdm_res
+            # if self.cbanalysismenu == '0' or self.hdr:
+            #     self.cbdm_res = 2 if self.cbdm_res > 2 else self.cbdm_res
 
             if (self.cbanalysismenu == '2' and self.metric in ('0', '1')) or self.cbanalysismenu in ('0', '1'):
                 (shour, ehour) = (self.cbdm_shour, self.cbdm_ehour)
@@ -775,7 +758,7 @@ class No_Li_Con(Node, ViNodes):
                     self['skytypeparams'] = "-P {} {} -O {} {}".format(self.epsilon, self.delta, int(self.spectrummenu), ('', '-C')[self.colour])
 
                 for f, frame in enumerate(range(self.startframe, self['endframe'] + 1)):
-                    skytext = livi_sun(scene, self, f) + livi_sky(self['skynum']) + livi_ground(*self.gcol, self.gref)
+                    skytext = livi_sun(scene, self, f) + livi_sky(self['skynum']) + livi_ground(*self.gcol)
 
                     if self['skynum'] < 2 or (self.skyprog == '1' and self.epsilon > 1):
                         if frame == self.startframe:
@@ -829,8 +812,7 @@ class No_Li_Con(Node, ViNodes):
                 self['preview'] = 1
                 self['Text'][str(scene.frame_current)] = cbdmhdr(self, scene, export_op)
             else:
-                self['Text'][str(scene.frame_current)] = ("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 180 \n"
-                                                          "void glow ground_glow \n0 \n0 \n4 1 1 1 0 \nground_glow source ground \n0 \n0 \n4 0 0 -1 180\n\n")
+                self['Text'][str(scene.frame_current)] = ("void glow sky_glow \n0 \n0 \n4 1 1 1 0 \nsky_glow source sky \n0 \n0 \n4 0 0 1 360\n")
 
                 if self.sourcemenu2 == '0':
                     with open("{}.mtx".format(os.path.join(svp['viparams']['newdir'], self['epwbase'][0])), 'r', errors="ignore") as mtxfile:
@@ -1266,6 +1248,15 @@ class No_Li_Sim(Node, ViNodes):
     def ret_params(self):
         return [str(x) for x in (self.cusacc, self.simacc, self.csimacc, self.pmap, self.pmapcno, self.pmapgno, self.pmapoptions, self.pmappreview)]
 
+    def ret_frames(self):
+        try:
+            sfs = [c['fs'] for c in (self.inputs['Context in'].links[0].from_node['Options'], self.inputs['Geometry in'].links[0].from_node['Options'])]
+            efs = [c['fe'] for c in (self.inputs['Context in'].links[0].from_node['Options'], self.inputs['Geometry in'].links[0].from_node['Options'])]
+            return [f for f in range(min(sfs), max(efs) + 1)]
+
+        except Exception:
+            return 0, 0
+
     def nodeupdate(self, context):
         nodecolour(self, self['exportstate'] != self.ret_params())
 
@@ -1277,13 +1268,14 @@ class No_Li_Sim(Node, ViNodes):
     csimacc: EnumProperty(items=[("0", "Custom", "Edit Radiance parameters"), ("1", "Initial", "Initial accuracy for this metric"),
                                  ("2", "Final", "Final accuracy for this metric")], name="", description="Simulation accuracy", default="1", update=nodeupdate)
     cusacc: StringProperty(name="Custom parameters", description="Custom Radiance simulation parameters", default="", update=nodeupdate)
-
     pmap: BoolProperty(name='', description="Turn on photon mapping", default=False, update=nodeupdate)
     bfv: BoolProperty(name='', description="Turn on back face visibility (may cause light bleed but deals with planar geometry", default=True, update=nodeupdate)
+    pmap_over: BoolProperty(name='', description="Overwrite pre-existing photon maps", default=True, update=nodeupdate)
     pmapgno: IntProperty(name='', default=50000, update=nodeupdate)
     pmapcno: IntProperty(name='', default=0, update=nodeupdate)
     pmapoptions: StringProperty(name="", description="Additional pmap parameters", default="", update=nodeupdate)
-    pmappreview: BoolProperty(name='', default=0, update=nodeupdate)
+    pmappreview: BoolProperty(name='', description="Turn on photon mapping preview", default=0, update=nodeupdate)
+    direct: BoolProperty(name='', description="Turn on direct contribution", default=0, update=nodeupdate)
     run: IntProperty(default=0)
     validparams: BoolProperty(name='', default=True)
     illu: BoolProperty(name='', default=False)
@@ -1301,11 +1293,12 @@ class No_Li_Sim(Node, ViNodes):
 
     def draw_buttons(self, context, layout):
         scene = context.scene
-        # svp = scene.vi_params
+        svp = scene.vi_params
 
         if self.inputs['Context in'].links and self.inputs['Geometry in'].links:
             cinnode = self.inputs['Context in'].links[0].from_node
             ginnode = self.inputs['Geometry in'].links[0].from_node
+            frames = self.ret_frames()
 
             if cinnode.get('Options'):
                 row = layout.row()
@@ -1313,11 +1306,23 @@ class No_Li_Sim(Node, ViNodes):
                 newrow(layout, 'Photon map:', self, 'pmap')
 
                 if self.pmap:
-                    newrow(layout, 'Global photons:', self, 'pmapgno')
-                    newrow(layout, 'Caustic photons:', self, 'pmapcno')
-                    newrow(layout, 'Back face visability:', self, 'bfv')
-                    newrow(layout, 'Photon options:', self, 'pmapoptions')
-                    newrow(layout, 'Preview photons:', self, 'pmappreview')
+                    if all([os.path.isfile(f"{svp['viparams']['filebase']}-{frame}.{('gpm', 'copm')[cinnode['Options']['Context'] == 'CBDM' and cinnode['Options']['Type'] != '0']}") for frame in frames]):
+                        newrow(layout, 'Overwrite PM:', self, 'pmap_over')
+
+                        if self.pmap_over:
+                            newrow(layout, 'Global photons:', self, 'pmapgno')
+                            newrow(layout, 'Caustic photons:', self, 'pmapcno')
+                            newrow(layout, 'Back face visability:', self, 'bfv')
+                            newrow(layout, 'Photon options:', self, 'pmapoptions')
+                            newrow(layout, 'Preview photons:', self, 'pmappreview')
+                    else:
+                        newrow(layout, 'Global photons:', self, 'pmapgno')
+                        newrow(layout, 'Caustic photons:', self, 'pmapcno')
+                        newrow(layout, 'Back face visability:', self, 'bfv')
+                        newrow(layout, 'Photon options:', self, 'pmapoptions')
+                        newrow(layout, 'Preview photons:', self, 'pmappreview')
+
+                    newrow(layout, 'Direct:', self, 'direct')
 
                 row = layout.row()
                 row.label(text="Accuracy:")
@@ -1369,7 +1374,8 @@ class No_Li_Sim(Node, ViNodes):
             self['radparams'] = ' {} '.format(self.cusacc) if self.simacc == '3' else ''.join([' {} {} '.format(k, rtraceparams[k][int(self.simacc)]) for k in rtraceparams])
             self['rvuparams'] = ' {} '.format(self.cusacc) if self.simacc == '3' else ''.join([' {} {} '.format(k, rvuparams[k][int(self.simacc)]) for k in rvuparams])
         else:
-            self['radparams'] = ' {} '.format(self.cusacc) if self.csimacc == '0' else ''.join([' {} {} '.format(k, rtracecbdmparams[k][int(self.simacc) - 1]) for k in rtracecbdmparams])
+            self['radparamspm'] = ' {} '.format(self.cusacc) if self.csimacc == '0' else ''.join([' {} {} '.format(k, rcontribpmparams[k][int(self.csimacc) - 1]) for k in rcontribpmparams])
+            self['radparams'] = ' {} '.format(self.cusacc) if self.csimacc == '0' else ''.join([' {} {} '.format(k, rtracecbdmparams[k][int(self.csimacc) - 1]) for k in rtracecbdmparams])
             self['rvuparams'] = ' {} '.format(self.cusacc) if self.csimacc == '0' else ''.join([' {} {} '.format(k, rvuparams[k][int(self.simacc) - 1]) for k in rvuparams])
 
     def sim(self, scene):
@@ -1463,11 +1469,11 @@ class No_Vi_WR(Node, ViNodes):
 
             row = layout.row()
             row.operator("node.windrose", text="Create Wind Rose")
-        
+
         elif not nodeinputs(self):
             row = layout.row()
             row.label(text='Connect Location node')
-        
+
         else:
             row = layout.row()
             row.label(text='EPW required')
@@ -9746,6 +9752,19 @@ class No_Au_Sim(Node, ViNodes):
     def nodeupdate(self, context):
         nodecolour(self, self['exportstate'] != self.ret_params())
 
+    def ret_rir_sources(self, context):
+        rirs = []
+        reslists = self.get("reslists")
+
+        if reslists:
+            for rl in reslists:
+                if rl[3] == 'RIR':
+                    rirs.append((f'{rl[0]} - {rl[2]}', f'{rl[0]} - {rl[2]}', f'{rl[2]} impulse response (frame {rl[0]}'))
+
+            return rirs
+        else:
+            return [('None', 'None', 'None')]
+
     max_order: IntProperty(name='', description='Accuracy: the higher the number the more accurate', min=0, max=3, default=1, update=nodeupdate)
     rt_rays: IntProperty(name='', description='No. of ray-tracing rays', min=1000, max=1000000, default=4000, update=nodeupdate)
     r_radius: FloatProperty(name="m", description="Receiver radius", min=0.05, max=1, default=0.5, update=nodeupdate)
@@ -9754,6 +9773,7 @@ class No_Au_Sim(Node, ViNodes):
     endframe: IntProperty(name="", description="End frame for animation", min=0, default=0, update=nodeupdate)
     netgen: BoolProperty(name="", description="Netgen mesh extraction", update=nodeupdate)
     collection: StringProperty(description="Select collection", update=nodeupdate)
+    rir_sources: EnumProperty(name='', description='Impulse response', items=ret_rir_sources, update=nodeupdate)
 
     def init(self, context):
         self['exportstate'] = ''
@@ -9788,6 +9808,14 @@ class No_Au_Sim(Node, ViNodes):
 
             row = layout.row()
             row.operator('node.rir_sim', text=('Generate IR', 'Generate Mesh')[self.netgen])
+
+            if self.get('reslists'):
+                newrow(layout, 'IR', self, "rir_sources")
+
+                if self.rir_sources != 'None':
+                    row = layout.row()
+                    row.operator('node.rir_save', text='Save IR')
+
         else:
             row = layout.row()
             row.label(text='Pyroomacoustics not found')
@@ -9864,8 +9892,11 @@ class No_Au_Conv(Node, ViNodes):
                 for rl in self.inputs[0].links[0].from_node['reslists']:
                     if rl[3] == 'RIR':
                         rirs.append((f'{rl[0]} - {rl[2]}', f'{rl[0]} - {rl[2]}', f'{rl[2]} impulse response (frame {rl[0]}'))
+
                 return rirs
+
             return [('None', 'None', 'None')]
+
         return [('None', 'None', 'None')]
 
     def ret_params(self):
@@ -9876,6 +9907,7 @@ class No_Au_Conv(Node, ViNodes):
 
     wavname: StringProperty(name="", description="Name of the WAV file to be convolved", default="", update=nodeupdate)
     rir: EnumProperty(name='', description='Impulse response', items=ret_rirs, update=nodeupdate)
+    fs: IntProperty(name='', description='Sampling rate', default=16000)
     play_o: bprop("", "", False)
     play_c: bprop("", "", False)
 

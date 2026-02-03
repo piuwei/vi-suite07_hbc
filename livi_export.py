@@ -26,7 +26,7 @@ from numpy import array, where, isin, zeros, savetxt
 
 
 def radpoints(o, faces, sks):
-    fentries = ['']*len(faces)
+    fentries = [''] * len(faces)
     valid_fmis = [msi for msi, ms in enumerate(o.material_slots) if o.material_slots[msi].material]
     o_mats = [o.material_slots[fmi].material for fmi in valid_fmis]
     mns = [m.name.replace(" ", "_").replace(",", "") for m in o.data.materials if m]
@@ -42,16 +42,16 @@ def radpoints(o, faces, sks):
             mvp = m.vi_params
             mname = mns[fmi] if not mvp.get('bsdf') else '{}_{}_{}'.format(mns[fmi], o.name, face.index)
             mentry = face_bsdf(o, m, mname, face)
-            fentry = "# Polygon \n{} polygon poly_{}_{}\n0\n0\n{}\n".format(mname, on, face.index, 3*len(face.verts))
+            fentry = "# Polygon \n{} polygon poly_{}_{}\n0\n0\n{}\n".format(mname, on, face.index, 3 * len(face.verts))
 
             if sks:
-                ventries = ''.join([" {0[0]:.6f} {0[1]:.6f} {0[2]:.6f}\n".format((o.matrix_world@Vector((v[skl0][0]+(v[skl1][0]-v[skl0][0])*skv1,
-                                                                                                         v[skl0][1]+(v[skl1][1]-v[skl0][1])*skv1,
-                                                                                                         v[skl0][2]+(v[skl1][2]-v[skl0][2])*skv1)))) for v in face.verts])
+                ventries = ''.join([" {0[0]:.6f} {0[1]:.6f} {0[2]:.6f}\n".format((o.matrix_world @ Vector((v[skl0][0]+(v[skl1][0]-v[skl0][0]) * skv1,
+                                                                                                           v[skl0][1]+(v[skl1][1]-v[skl0][1]) * skv1,
+                                                                                                           v[skl0][2]+(v[skl1][2]-v[skl0][2]) * skv1)))) for v in face.verts])
             else:
                 ventries = ''.join([" {0[0]:.6f} {0[1]:.6f} {0[2]:.6f}\n".format(v.co) for v in face.verts])
 
-            fentries[f] = ''.join((mentry, fentry, ventries+'\n'))
+            fentries[f] = ''.join((mentry, fentry, ventries + '\n'))
 
         else:
             logentry(f'{o.name} face {face.index} has no material defined. Check that mesh modifiers have been applied')
@@ -68,10 +68,10 @@ def bmesh2mesh(scene, obmesh, o, frame, tmf, m_export, tri):
     if tri:
         bmesh.ops.connect_verts_concave(bm, faces=[f for f in bm.faces if f.material_index < len(oms) and not oms[f.material_index].material.vi_params.pport])
         #bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if f.material_index < len(oms) and not oms[f.material_index].material.vi_params.pport])
-    
+
     if not m_export and not any([slot.material.vi_params.radtex for slot in oms if slot.material]) and not o.data.polygons[0].use_smooth:
         gradfile += radpoints(o, bm.faces, 0)
-    
+
     else:
         valid_fmis = [msi for msi, ms in enumerate(oms) if oms[msi].material]
         o_mats = [oms[fmi].material for fmi in valid_fmis]
@@ -86,16 +86,47 @@ def bmesh2mesh(scene, obmesh, o, frame, tmf, m_export, tri):
         mmats = [mat for mat in o_mats if mat and mat.vi_params.radmatmenu in ('0', '1', '2', '3', '6', '9')]
         otext = 'o {}\n'.format(o.name)
         vtext = ''.join(['v {0[0]:.6f} {0[1]:.6f} {0[2]:.6f}\n'.format(v.co) for v in bm.verts])
+        bm.faces.ensure_lookup_table()
+        fvnorms = []
 
-        if o.data.polygons[0].use_smooth:
+        if o.data.polygons[0].use_smooth and not all([e.smooth for e in bm.edges]):
+            vnorms = []
+
+            for face in bm.faces:
+                fvnorms.append([len(vnorms) + v for v in range(1, len(face.verts) + 1)])
+
+                for v in face.verts:
+                    if any([e.smooth for e in v.link_edges if e in face.edges]):
+                        norms = []
+
+                        for e in v.link_edges:
+                            if e.smooth and e in face.edges:
+                                for f in e.link_faces:
+                                    norms.append(f.normal.copy())
+
+                        for norm in norms[1:]:
+                            norms[0] += norm
+
+                        vnorm = norms[0] / len(norms)
+
+                    else:
+                        norms = [1]
+                        vnorm = face.normal
+
+                    vnorms.append(vnorm)
+
+            vtext += ''.join(['vn {0[0]:.3f} {0[1]:.3f} {0[2]:.3f}\n'.format(vn.normalized()) for vn in vnorms])
+
+        else:
             vtext += ''.join(['vn {0[0]:.3f} {0[1]:.3f} {0[2]:.3f}\n'.format(v.normal.normalized()) for v in bm.verts])
+            fvnorms = ([[v.index + 1 for v in face.verts] for face in bm.faces])
 
         if not any([slot.material.vi_params.radtex for slot in oms if slot.material]):
             if mfaces:
                 for mat in mmats:
                     matname = mat.vi_params['radname']
-                    ftext += "usemtl {}\n".format(matname) + ''.join(['f {}\n'.format(' '.join(('{0}', '{0}//{0}')[o.data.polygons[0].use_smooth and all([e.smooth for e in f.edges])].format(v.index + 1) for v in f.verts)) for f in mfaces if o.data.materials[f.material_index] == mat])
-        
+                    ftext += "usemtl {}\n".format(matname) + ''.join(['f {}\n'.format(' '.join(('{0}', '{0}//{1}')[o.data.polygons[0].use_smooth and any([e.smooth for e in f.edges])].format(v.index + 1, fvnorms[f.index][vn]) for vn, v in enumerate(f.verts))) for f in mfaces if o.data.materials[f.material_index] == mat])
+
         elif bm.loops.layers.uv.values():
             uv_layer = bm.loops.layers.uv.values()[0]
             bm.faces.ensure_lookup_table()
@@ -110,8 +141,7 @@ def bmesh2mesh(scene, obmesh, o, frame, tmf, m_export, tri):
             if mfaces:
                 for mat in mmats:
                     matname = mat.vi_params['radname']
-                    ftext += "usemtl {}\n".format(matname) + ''.join(['f {}\n'.format(' '.join(('{0}/{1}'.format(loop.vert.index + 1, loop.index), 
-                                                                                                '{0}/{1}/{0}'.format(loop.vert.index + 1, loop.index))[o.data.polygons[0].use_smooth and all([e.smooth for e in f.edges])] for loop in f.loops)) for f in mfaces if o.data.materials[f.material_index] == mat])
+                    ftext += "usemtl {}\n".format(matname) + ''.join(['f {}\n'.format(' '.join(('{0}/{1}', '{0}/{1}/{2}')[o.data.polygons[0].use_smooth and any([e.smooth for e in f.edges])].format(loop.vert.index + 1, loop.index, fvnorms[f.index][li]) for li, loop in enumerate(f.loops))) for f in mfaces if o.data.materials[f.material_index] == mat])
 
         if ffaces:
             gradfile += radpoints(o, ffaces, 0)
@@ -148,7 +178,7 @@ def radgexport(export_op, node):
     clearscene(bpy.context, export_op)
     frames = range(node['Options']['fs'], node['Options']['fe'] + 1)
     svp['liparams']['cp'] = node.cpoint
-    geooblist, caloblist, lightlist = retobjs('livig'), retobjs('livic'), retobjs('livil')
+    geooblist, caloblist, lightlist = retobjs(export_op, 'livig'), retobjs(export_op, 'livic'), retobjs(export_op, 'livil')
     mats = []
 
     for o in geooblist + caloblist:
@@ -210,7 +240,7 @@ def radgexport(export_op, node):
         gradfile = "# Geometry \n\n"
         lradfile = "# Lights \n\n"
         bpy.ops.object.select_all(action='DESELECT')
-        tempmatfilename = svp['viparams']['filebase']+".tempmat"
+        tempmatfilename = svp['viparams']['filebase'] + ".tempmat"
 
         with open(tempmatfilename, "w") as tempmatfile:
             tempmatfile.write(mradfile)
@@ -246,7 +276,7 @@ def radgexport(export_op, node):
                 dob = ps.settings.instance_object
                 (t, r, s) = dob.matrix_world.decompose()
                 dob_axis = Vector((0.0, 1.0, 0.0))
-                dob_axis_glo = r@dob_axis
+                dob_axis_glo = r @ dob_axis
                 dobs = [dob] if dob else []
                 dobs = ps.settings.dupli_group.objects if not dobs else dobs
 
@@ -295,7 +325,7 @@ def radgexport(export_op, node):
                         dat_str = dat_str.replace(os.path.join(svp['liparams']['lightfilebase'], '{}-{}.dat'.format(iesname, frame)), '"{}"'.format(os.path.join(svp['liparams']['lightfilebase'], '{}-{}.dat'.format(iesname, frame))))
 
                         for suf in (f'-{frame}_dist', f'-{frame}_light', f'-{frame}.u', f'-{frame}.s'):
-                            dat_str = dat_str.replace(iesname+suf, f'"{iesname}{suf}"')
+                            dat_str = dat_str.replace(iesname + suf, f'"{iesname}{suf}"')
 
                         dat_str = dat_str.replace(f' {iesname}-{frame}.d', f' "{iesname}-{frame}.d"')
 
@@ -305,7 +335,7 @@ def radgexport(export_op, node):
                     if o.type == 'LIGHT':
                         if o.parent:
                             o = o.parent
-                        lradfile += u'!xform -rx {0[0]:.4f} -ry {0[1]:.4f} -rz {0[2]:.4f} -t {1[0]:.4f} {1[1]:.4f} {1[2]:.4f} "{2}.rad"\n\n'.format([(180/pi)*o.rotation_euler[i] for i in range(3)], o.location, os.path.join(svp['liparams']['lightfilebase'], iesname+"-{}".format(frame)))
+                        lradfile += u'!xform -rx {0[0]:.4f} -ry {0[1]:.4f} -rz {0[2]:.4f} -t {1[0]:.4f} {1[1]:.4f} {1[2]:.4f} "{2}.rad"\n\n'.format([(180 / pi) * o.rotation_euler[i] for i in range(3)], o.location, os.path.join(svp['liparams']['lightfilebase'], iesname+"-{}".format(frame)))
 
                     elif o.type == 'MESH':
                         tm = o.to_mesh()
@@ -328,7 +358,7 @@ def radgexport(export_op, node):
                 export_op.report({'ERROR'}, 'The IES file associated with {} cannot be found'.format(o.name))
 
         sradfile = "# Sky \n\n"
-        node['Text'][str(frame)] = mradfile+gradfile+lradfile+sradfile
+        node['Text'][str(frame)] = mradfile + gradfile + lradfile + sradfile
 
 
 def gen_octree(scene, o, op, mesh, tri):
@@ -356,7 +386,7 @@ def gen_octree(scene, o, op, mesh, tri):
 
     with open(os.path.join(nd, 'octrees', '{}.oct'.format(o.name)), "wb") as octfile:
         try:
-            ocrun =  Popen("oconv -w -".split(), stdin=PIPE, stderr=PIPE, stdout=octfile, universal_newlines=True)
+            ocrun = Popen("oconv -w -".split(), stdin=PIPE, stderr=PIPE, stdout=octfile, universal_newlines=True)
             err = ocrun.communicate(input=mradfile + gradfile, timeout=600)[1]
 
             if err:
@@ -382,17 +412,18 @@ def gen_octree(scene, o, op, mesh, tri):
 
 def livi_sun(scene, node, frame):
     svp = scene.vi_params
+    g_reflec = node.gcol[0] * 0.265 + node.gcol[1] * 0.670 + node.gcol[2] * 0.065
 
     if node.skyprog in ('0', '1') and node.contextmenu == 'Basic':
-        simtime = node.starttime + frame*datetime.timedelta(seconds=3600*node.interval)
-        solalt, solazi, beta, phi = solarPosition(simtime.timetuple()[7], simtime.hour + (simtime.minute)*0.016666, svp.latitude, svp.longitude)
+        simtime = node.starttime + frame * datetime.timedelta(seconds=3600 * node.interval)
+        solalt, solazi, beta, phi = solarPosition(simtime.timetuple()[7], simtime.hour + (simtime.minute) * 0.016666, svp.latitude, svp.longitude)
 
         if node.skyprog == '0':
-            gscmd = "gensky -ang {:.3f} {:.3f} {} -t {} -g {}".format(solalt, solazi, node['skytypeparams'], node.turb, node.gref)
+            gscmd = "gensky -ang {:.3f} {:.3f} {} -t {} -g {}".format(solalt, solazi, node['skytypeparams'], node.turb, g_reflec)
         else:
-            gscmd = "gendaylit -ang {:.3f} {:.3f} {} -g {}".format(solalt, solazi, node['skytypeparams'], node.gref)
+            gscmd = "gendaylit -ang {:.3f} {:.3f} {} -g {}".format(solalt, solazi, node['skytypeparams'], g_reflec)
     else:
-        gscmd = "gensky -ang {:.3f} {:.3f} {} -g {}".format(45, 0, node['skytypeparams'], node.gref)
+        gscmd = "gensky -ang {:.3f} {:.3f} {} -g {}".format(45, 0, node['skytypeparams'], g_reflec)
 
     logentry('Generating sky with the command: {}'.format(gscmd))
     gsrun = Popen(gscmd.split(), stdout=PIPE)
@@ -406,7 +437,7 @@ def hdrexport(scene, f, frame, node, skytext):
     with open('{}-{}sky.oct'.format(svp['viparams']['filebase'], frame), 'w') as skyoct:
         Popen('oconv -w -'.split(), stdin=PIPE, stdout=skyoct).communicate(input=skytext.encode('utf-8'))
 
-    with open(os.path.join(svp['viparams']['newdir'], str(frame)+".hdr"), 'w') as hdrfile:
+    with open(os.path.join(svp['viparams']['newdir'], str(frame) + ".hdr"), 'w') as hdrfile:
         rpictcmd = 'rpict -vta -vp 0 0 0 -vd {} -vu 0 0 1 -vh 360 -vv 360 -x 1500 -y 1500 "{}-{}sky.oct"'.format(vd, svp['viparams']['filebase'], frame)
         Popen(shlex.split(rpictcmd), stdout=hdrfile).communicate()
 
@@ -423,16 +454,19 @@ def hdrexport(scene, f, frame, node, skytext):
     else:
         bpy.data.images['{}p.hdr'.format(frame)].reload()
 
+
 def livi_sky(sn):
     skytext = "4 .8 .8 1 0\n\n" if sn < 3 else "4 1 1 1 0\n\n"
-    return "\nskyfunc glow sky_glow\n0\n0\n" + skytext + "sky_glow source sky\n0\n0\n4 0 0 1  180\n\n"
+    return "\nskyfunc glow sky_glow\n0\n0\n" + skytext + "sky_glow source sky\n0\n0\n4 0 0 1 180\n\n"
 
-def livi_ground(r, g, b, ref):
-    fac = ref/(r * 0.265 + g * 0.670 + b * 0.065)
-    if ref:
-        return "skyfunc glow ground_glow\n0\n0\n4 {0[0]:.3f} {0[1]:.3f} {0[2]:.3f} 0\n\nground_glow source ground\n0\n0\n4 0 0 -1 180\n\n".format([c*fac for c in (r, g, b)])
-    else:
-        return ''
+
+def livi_ground(r, g, b):
+    # fac = ref / (r * 0.265 + g * 0.670 + b * 0.065)
+    # if ref:
+    return "skyfunc glow ground_glow\n0\n0\n4 {:.3f} {:.3f} {:.3f} 0\n\nground_glow source ground\n0\n0\n4 0 0 -1 180\n\n".format(r, g, b)
+    # else:
+    #     return ''
+
 
 def createradfile(scene, frame, export_op, simnode):
     radtext = ''
