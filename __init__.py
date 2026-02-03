@@ -37,7 +37,10 @@ if "bpy" in locals():
     imp.reload(envi_mat)
 else:
     import sys, os, inspect, shlex, bpy, shutil, socket
+    import glob
+    import subprocess
     from subprocess import Popen
+    from pathlib import Path
     import nodeitems_utils
     from bpy.app.handlers import persistent
     from bpy.props import StringProperty, EnumProperty, IntProperty, FloatProperty, BoolProperty
@@ -48,10 +51,36 @@ else:
         os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
         os.environ['PYTHON_INCLUDE_DIR'] = os.path.join(addonpath, 'Python', sys.platform, 'include')
 
+
     plat_path = os.path.join(addonpath, 'Python', sys.platform)
     install_fails = []
     sys_install = 0
 
+    # netgen workaround (blender doesnt pip install, just extracts)
+    try:
+        import netgen
+    except Exception as e:
+        print("Installing Netgen with local wheels pip install")
+
+        try:
+            ext_dir = Path(__file__).parent
+            netgen_wheel_dir = ext_dir / "/ngsolve_wheels"
+            netgen_wheels_paths = glob.glob(os.path.join(netgen_wheel_dir, '*.whl'))
+
+            if not netgen_wheels_paths:
+                print(f"No wheels found in {netgen_wheel_dir}")
+            else:
+                netgen_install_cmd = [sys.executable, '-m', 'pip', 'install', '--no-index', '--find-links', netgen_wheel_dir] + netgen_wheels_paths
+                subprocess.check_call(netgen_install_cmd)
+                # print("Installed:", netgen_wheels_paths)
+        except:
+            print("Last Resort: Downloading Netgen/ngsolve from pypi")
+            netgen_install_cmd = [
+                sys.executable, '-m', 'pip', 'install', 'ngsolve'
+                ]
+            subprocess.check_call(netgen_install_cmd)
+            # print("Installed:", netgen_wheels_paths)
+        
     try:
         res = socket.getaddrinfo('google.com', 80)
         internet = 1
@@ -87,115 +116,115 @@ else:
 
         return install_fails
 
-    if not all(install_libs()):
-        sys_install = 1
+    # if not all(install_libs()):
+    #     sys_install = 1
 
-    if any(install_libs()):
-        win = sys.platform == 'win32'
-        print('Some system libraries were not found. Checking built-in libraries')
-        sys.path.insert(0, os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages'))
-        sys.path.insert(0, plat_path)
+    # if any(install_libs()):
+    #     win = sys.platform == 'win32'
+    #     print('Some system libraries were not found. Checking built-in libraries')
+        # sys.path.insert(0, os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages'))
+        # sys.path.insert(0, plat_path)
 
-        if os.environ.get('PYTHONPATH'):
-            if plat_path not in os.environ['PYTHONPATH']:
-                os.environ['PYTHONPATH'] = plat_path + os.pathsep + os.environ['PYTHONPATH']
+        # if os.environ.get('PYTHONPATH'):
+        #     if plat_path not in os.environ['PYTHONPATH']:
+        #         os.environ['PYTHONPATH'] = plat_path + os.pathsep + os.environ['PYTHONPATH']
 
-                #if sys.platform != 'linux':
-                os.environ['PYTHONPATH'] = plat_path + os.pathsep + os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages') + os.pathsep + os.environ['PYTHONPATH']
-        else:
-            os.environ['PYTHONPATH'] = plat_path
+        #         #if sys.platform != 'linux':
+        #         os.environ['PYTHONPATH'] = plat_path + os.pathsep + os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages') + os.pathsep + os.environ['PYTHONPATH']
+        # else:
+        #     os.environ['PYTHONPATH'] = plat_path
 
-            #if sys.platform != 'linux':
-            os.environ['PYTHONPATH'] += os.pathsep + os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages')
+        #     #if sys.platform != 'linux':
+        #     os.environ['PYTHONPATH'] += os.pathsep + os.path.join(addonpath, 'Python', sys.platform, '{}ib'.format(('l', 'L')[win]), ('python{}.{}'.format(sys.version_info.major, sys.version_info.minor), '')[win], 'site-packages')
 
-        if sys.platform == 'linux':
-            if not os.environ.get('LD_LIBRARY_PATH'):
-                os.environ['LD_LIBRARY_PATH'] = plat_path
+        # if sys.platform == 'linux':
+        #     if not os.environ.get('LD_LIBRARY_PATH'):
+        #         os.environ['LD_LIBRARY_PATH'] = plat_path
 
-            elif plat_path not in os.environ['LD_LIBRARY_PATH']:
-                os.environ['LD_LIBRARY_PATH'] += os.pathsep + plat_path
+        #     elif plat_path not in os.environ['LD_LIBRARY_PATH']:
+        #         os.environ['LD_LIBRARY_PATH'] += os.pathsep + plat_path
 
-        elif sys.platform == 'darwin':
-            if not os.environ.get('DYLD_LIBRARY_PATH'):
-                os.environ['DYLD_LIBRARY_PATH'] = plat_path
+        # elif sys.platform == 'darwin':
+        #     if not os.environ.get('DYLD_LIBRARY_PATH'):
+        #         os.environ['DYLD_LIBRARY_PATH'] = plat_path
 
-        if os.environ.get('PATH'):
-            if os.path.join(addonpath, 'Python', sys.platform, 'bin') not in os.environ['PATH']:
-                os.environ['PATH'] += os.pathsep + os.path.join(addonpath, 'Python', sys.platform, 'bin')
-        else:
-            os.environ['PATH'] = os.path.join(addonpath, 'Python', sys.platform, 'bin')
+        # if os.environ.get('PATH'):
+        #     if os.path.join(addonpath, 'Python', sys.platform, 'bin') not in os.environ['PATH']:
+        #         os.environ['PATH'] += os.pathsep + os.path.join(addonpath, 'Python', sys.platform, 'bin')
+        # else:
+        #     os.environ['PATH'] = os.path.join(addonpath, 'Python', sys.platform, 'bin')
 
-        install_fails = install_libs()
+        # install_fails = install_libs()
 
-        if any(install_fails):
-            if not internet:
-                raise Exception('Installation of the VI-Suite requires an internet connection')
+        # if any(install_fails):
+        #     if not internet:
+        #         raise Exception('Installation of the VI-Suite requires an internet connection')
 
-            print('Some built-in libraries were not found. Installing.')
-            pyqt_cmd = '"{}" -m pip install -r "{}" --target "{}"'.format(sys.executable, os.path.join(addonpath, 'Python', 'requirements.txt'), plat_path)
-            Popen(shlex.split(pyqt_cmd)).wait()
-            print('Installed local libraries')
+        #     print('Some built-in libraries were not found. Installing.')
+        #     pyqt_cmd = '"{}" -m pip install -r "{}" --target "{}"'.format(sys.executable, os.path.join(addonpath, 'Python', 'requirements.txt'), plat_path)
+        #     Popen(shlex.split(pyqt_cmd)).wait()
+        #     print('Installed local libraries')
 
-        else:
-            print('Found built-in libraries')
+        # else:
+        #     print('Found built-in libraries')
 
-    else:
-        print('VI-Suite: Using system libraries')
+    # else:
+    #     print('VI-Suite: Using system libraries')
 
-    try:
-        import netgen
+    # try:
+    #     import netgen
 
-    except Exception:
-        if sys.platform == 'darwin':
-            ngocc_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-occt==7.8.1'.format(sys.executable, plat_path)
-            Popen(shlex.split(ngocc_cmd)).wait()
-            ng_cmd = '"{0}" -m pip install --upgrade --force --target "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
-            Popen(shlex.split(ng_cmd)).wait()
-            src_path = os.path.join(addonpath, 'Python', sys.platform, 'lib')
-            dest_path = os.path.join(addonpath, 'Python')
-            files = os.listdir(src_path)
+    # except Exception:
+    #     if sys.platform == 'darwin':
+    #         ngocc_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-occt==7.8.1'.format(sys.executable, plat_path)
+    #         Popen(shlex.split(ngocc_cmd)).wait()
+    #         ng_cmd = '"{0}" -m pip install --upgrade --force --target "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
+    #         Popen(shlex.split(ng_cmd)).wait()
+    #         src_path = os.path.join(addonpath, 'Python', sys.platform, 'lib')
+    #         dest_path = os.path.join(addonpath, 'Python')
+    #         files = os.listdir(src_path)
 
-            for f in files:
-                if sys.platform == 'darwin' and f.endswith('.dylib') or sys.platform == 'linux' and f.startswith('libT'):
-                    src_file = os.path.join(src_path, f)
-                    dest_file = os.path.join(dest_path, f)
-                    shutil.move(src_file, dest_file)
+    #         for f in files:
+    #             if sys.platform == 'darwin' and f.endswith('.dylib') or sys.platform == 'linux' and f.startswith('libT'):
+    #                 src_file = os.path.join(src_path, f)
+    #                 dest_file = os.path.join(dest_path, f)
+    #                 shutil.move(src_file, dest_file)
 
-        elif sys.platform == 'win32':
-            ngocc_cmd = '"{0}" -m pip install --target "{1}" --upgrade netgen-occt==7.8.1'.format(sys.executable, os.path.join(addonpath, 'Python', sys.platform))
-            Popen(shlex.split(ngocc_cmd)).wait()
-            ng_cmd = '"{0}" -m pip install --target "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
-            Popen(shlex.split(ng_cmd)).wait()
+    #     elif sys.platform == 'win32':
+    #         ngocc_cmd = '"{0}" -m pip install --target "{1}" --upgrade netgen-occt==7.8.1'.format(sys.executable, os.path.join(addonpath, 'Python', sys.platform))
+    #         Popen(shlex.split(ngocc_cmd)).wait()
+    #         ng_cmd = '"{0}" -m pip install --target "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
+    #         Popen(shlex.split(ng_cmd)).wait()
 
-        elif sys.platform == 'linux':
-            try:
-                import netgen
-            except Exception:
-                ngocc_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-occt==7.8.1'.format(sys.executable, plat_path)
-                Popen(shlex.split(ngocc_cmd)).wait()
-                ng_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
-                Popen(shlex.split(ng_cmd)).wait()
+    #     elif sys.platform == 'linux':
+    #         try:
+    #             import netgen
+    #         except Exception:
+    #             ngocc_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-occt==7.8.1'.format(sys.executable, plat_path)
+    #             Popen(shlex.split(ngocc_cmd)).wait()
+    #             ng_cmd = '"{0}" -m pip install --upgrade --force --prefix "{1}" netgen-mesher==6.2.2506'.format(sys.executable, plat_path)
+    #             Popen(shlex.split(ng_cmd)).wait()
 
-        try:
-            import netgen
+    #     try:
+    #         import netgen
 
-        except Exception:
-            print('Netgen installation failed and is disabled')
+    #     except Exception:
+    #         print('Netgen installation failed and is disabled')
 
-    try:
-        import pyroomacoustics as pra
+    # try:
+    #     import pyroomacoustics as pra
 
-    except Exception:
-        if sys.platform == 'linux':
-            pyr_cmd = '"{0}" -m pip install --target {1} {2}'.format(sys.executable, plat_path, os.path.join(plat_path, 'pyroomacoustics-0.7.7-cp311-cp311-linux_x86_64.whl'))
-            Popen(shlex.split(pyr_cmd)).wait()
-            print('Installing built-in pyroomacoustics')
-            #print('For pyroomacoustics functionality on linux, a system install of Blender, PySide6, Matplotlib, Netgen and pyroomacoustics is required')
-        else:
-            try:
-                import pyroomacoustics as pra
-            except Exception:
-                print('pyroomacoustics installation failed and is disabled')
+    # except Exception:
+    #     if sys.platform == 'linux':
+    #         pyr_cmd = '"{0}" -m pip install --target {1} --no-index --find-links {2} pyroomacoustics'.format(sys.executable, plat_path, os.path.join(plat_path, 'pyroomacoustics/'))
+    #         Popen(shlex.split(pyr_cmd)).wait()
+    #         print('Installing built-in pyroomacoustics')
+    #         # print('For pyroomacoustics functionality on linux, a system install of Blender, PySide6, Matplotlib, Netgen and pyroomacoustics is required')
+    #     else:
+    #         try:
+    #             import pyroomacoustics as pra
+    #         except Exception:
+    #             print('pyroomacoustics installation failed and is disabled')
 
     if sys.platform in ('linux', 'darwin'):
         ep_path = os.path.join(addonpath, 'EPFiles', sys.platform)

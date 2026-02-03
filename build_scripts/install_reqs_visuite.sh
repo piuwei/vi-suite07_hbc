@@ -23,7 +23,6 @@ python3.11 -m pip install scipy --target="/home/pius/.config/blender/$BLENDER_VE
 # needed for numpy.core.multiarray something. Must --upgrade to overwrite preexisting numpy installs
 python3.11 -m pip install numpy==1.26.4 --target="/home/pius/.config/blender/$BLENDER_VERSION/scripts/modules" --upgrade
 
-
 #sudo apt install python3-matplotlib python3-kivy python3-openimageio
 #python3-pyside6.qtgui python3-pyside6.qtprintsupport
 #python3-pyside6.qtsvg

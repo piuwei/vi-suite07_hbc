@@ -11,7 +11,8 @@ cp -u *.py ~/.config/blender/5.0/scripts/addons/vi-suite07_26-01_hbc/
 
 ## hbc downstream branch
 
-- use `bash create_archives.sh` for archive creation
+- ~~use `bash create_archives.sh` for archive creation~~
+  - use build_scripts
 - use vi-suite07_hbc.zip for full install of vi-suite
 - use vi-suite07_hbc_tiny.zip for quick updates of only the .py files
 

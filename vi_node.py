@@ -160,7 +160,7 @@ class No_Loc(Node, ViNodes):
         elif self.loc == '1':
             entries = []
             addonfolder = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
-            vi_prefs = bpy.context.preferences.addons['{}'.format(addonfolder)].preferences
+            vi_prefs = bpy.context.preferences.addons['bl_ext.user_default.{}'.format(addonfolder)].preferences
 
             if vi_prefs and os.path.isdir(bpy.path.abspath(vi_prefs.epweath)):
                 epwpath = bpy.path.abspath(vi_prefs.epweath)
@@ -4728,7 +4728,7 @@ class No_Flo_NG(Node, ViNodes):
     def draw_buttons(self, context, layout):
         if sys.platform == 'linux':
             addonfolder = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
-            vi_prefs = bpy.context.preferences.addons['{}'.format(addonfolder)].preferences
+            vi_prefs = bpy.context.preferences.addons['bl_ext.user_default.{}'.format(addonfolder)].preferences
 
             if os.path.isdir(vi_prefs.ofbin) and os.path.isfile(os.path.join(vi_prefs.ofbin, 'foamExec')):
                 flo_libs[1] = 1

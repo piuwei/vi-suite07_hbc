@@ -13,3 +13,12 @@ vi-suite07_hbc*/
 .gitattributes
 
 vi*.pdf
+
+wheels/
+
+/ngsolve*/
+/site-packages/
+/pyroomacoustics*/
+/Python/
+
+/specials/

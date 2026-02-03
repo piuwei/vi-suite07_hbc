@@ -16,7 +16,23 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, datetime, mathutils, os, bmesh, shutil, sys, shlex, itertools, inspect, aud, multiprocessing
+import bpy
+import datetime
+import mathutils
+import os
+import bmesh
+import shutil
+import sys
+import shlex
+import itertools
+import inspect
+try:
+    import aud
+except ImportError:
+    aud = None  # Graceful fallback, no audio
+    
+import multiprocessing
+
 from bpy_extras import mesh_utils
 from pathlib import Path
 import subprocess

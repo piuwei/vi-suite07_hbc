@@ -81,7 +81,7 @@ def ret_datab(fname, r_w):
 
     addondir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
     addonfolder = os.path.dirname(os.path.abspath(__file__))
-    vi_prefs = bpy.context.preferences.addons['{}'.format(addondir)].preferences
+    vi_prefs = bpy.context.preferences.addons['bl_ext.user_default.{}'.format(addondir)].preferences
 
     if vi_prefs and vi_prefs.datab and os.path.isdir(vi_prefs.datab):
         if os.path.isfile(os.path.join(vi_prefs.datab, fname)) or r_w == 'w':
