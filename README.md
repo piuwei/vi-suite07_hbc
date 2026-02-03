@@ -12,7 +12,7 @@ https://bwsyncandshare.kit.edu/s/w5ftGjwF2Qe4JdQ
 
 ## Build-Guide
 
-see [./build_guide.md](./build_guide.md)
+see [./build_guide.md](hbc_downstream/build_guide.md)
 
 ## TODO
 
