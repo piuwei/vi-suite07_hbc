@@ -1,4 +1,4 @@
-# vi-suite07 HBC Version
+# HBC Version der VI-Suite 
 
 Fork of VI-Suite by Ryan Southall ([https://github.com/rgsouthall](https://github.com/rgsouthall)).
 With some Patches developed at HBC (Biberach University of Applied Sciences).
