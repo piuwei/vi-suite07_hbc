@@ -6,10 +6,10 @@ import sys
 from pathlib import Path
 from typing import List
 
-# Configurable environment (defaults to visuite)
-
+# select conda environment to get the wheels
 CONDA_ENV = os.environ.get("CONDA_ENV", "visuite_313")
 PYTHON_VERSION = "3.13"
+
 REQUIREMENTS_FILE = "./requirements.txt"
 SUBDIR = ""  # blank str "" if no subdir
 MAIN_DEST_DIR = f"../wheels{SUBDIR}"
@@ -168,15 +168,6 @@ def main():
     run_pip_download_in_env(
         CONDA_ENV, NGSOLVE_DEST_DIR, MACOS_X86_PLATFORMS, pkg_str="ngsolve"
     )
-
-    # Numpy Special Version, because blender doesnt like numpy==2.x
-    # trial: dont use for Blender >5.1
-    # run_pip_download_in_env(
-    #     CONDA_ENV,
-    #     MAIN_DEST_DIR,
-    #     platforms=["manylinux_2_17_x86_64"],
-    #     pkg_str="numpy==1.26.4",
-    # )
 
     # -- PYROOMACOUSTICS
     # Windows and MacOS Wheels for pyroomacoustics are available on PyPI
