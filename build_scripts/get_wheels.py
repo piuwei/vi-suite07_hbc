@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
-import glob
+
 import os
 import subprocess
 import sys
 from pathlib import Path
-from pprint import pprint
 from typing import List
 
 # Configurable environment (defaults to visuite)
-CONDA_ENV = os.environ.get("CONDA_ENV", "visuite")
 
+CONDA_ENV = os.environ.get("CONDA_ENV", "visuite_313")
+PYTHON_VERSION = "3.13"
 REQUIREMENTS_FILE = "./requirements.txt"
-
-MAIN_DEST_DIR = "../wheels"
-NGSOLVE_DEST_DIR = "../ngsolve_wheels"
-PYROOMACOUSTICS_DEST_DIR = "../pyroomacoustics_wheels"
-
+SUBDIR = ""  # blank str "" if no subdir
+MAIN_DEST_DIR = f"../wheels{SUBDIR}"
+NGSOLVE_DEST_DIR = f"../ngsolve_wheels{SUBDIR}"
+PYROOMACOUSTICS_DEST_DIR = f"../pyroomacoustics_wheels{SUBDIR}"
 NG_SOLVE_PACKAGES: List[str] = ["mkl-service", "ngsolve"]
-
 WINDOWS_PLATFORMS = ["win_amd64"]
 LINUX_GLIBC_PLATFORMS = [
     "linux_x86_64",
@@ -76,7 +74,7 @@ def build_download_command(
             "--dest",
             dest_dir,
             "--only-binary=:all:",
-            "--python-version=3.11",
+            f"--python-version={PYTHON_VERSION}",
         ]
     elif pkg_str:
         cmd = [
@@ -92,7 +90,7 @@ def build_download_command(
             "--dest",
             dest_dir,
             "--only-binary=:all:",
-            "--python-version=3.11",
+            f"--python-version={PYTHON_VERSION}",
         ]
 
     for s_plat in sub_platforms:
@@ -172,24 +170,27 @@ def main():
     )
 
     # Numpy Special Version, because blender doesnt like numpy==2.x
-    run_pip_download_in_env(
-        CONDA_ENV,
-        MAIN_DEST_DIR,
-        platforms=["manylinux_2_17_x86_64"],
-        pkg_str="numpy==1.26.4",
-    )
+    # trial: dont use for Blender >5.1
+    # run_pip_download_in_env(
+    #     CONDA_ENV,
+    #     MAIN_DEST_DIR,
+    #     platforms=["manylinux_2_17_x86_64"],
+    #     pkg_str="numpy==1.26.4",
+    # )
 
     # -- PYROOMACOUSTICS
     # Windows and MacOS Wheels for pyroomacoustics are available on PyPI
     run_pip_download_in_env(
         CONDA_ENV, MAIN_DEST_DIR, WINDOWS_PLATFORMS, pkg_str="pyroomacoustics"
     )
+    # ARM64
     run_pip_download_in_env(
         CONDA_ENV,
         MAIN_DEST_DIR,
         MACOS_ARM64_PLATFORMS,
         pkg_str="pyroomacoustics",
     )
+    # x86
     run_pip_download_in_env(
         CONDA_ENV,
         MAIN_DEST_DIR,
@@ -212,18 +213,6 @@ def main():
         PYROOMACOUSTICS_DEST_DIR,
     ]
     subprocess.run(pra_linux_cmd, check=True)
-
-    # -- CLEAN UP
-
-    # Delete blender-incompatible numpy 2.x wheels
-    # (maybe remove with blender 5.1+)
-    for wheels_dir in [
-        MAIN_DEST_DIR,
-        NGSOLVE_DEST_DIR,
-        PYROOMACOUSTICS_DEST_DIR,
-    ]:
-        for f in glob.glob(f"{wheels_dir}/numpy-2.*"):
-            Path(f).unlink()
 
     # -- OUTPUT
     sorted_wheels = sorted(

@@ -16,9 +16,8 @@ vi*.pdf
 
 wheels/
 
-/ngsolve*/
-/site-packages/
-/pyroomacoustics*/
-/Python/
+ngsolve_wheels/
+pyroomacoustics_wheels/
 
-/specials/
+site-packages/
+Python/

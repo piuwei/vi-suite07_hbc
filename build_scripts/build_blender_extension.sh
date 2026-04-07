@@ -1,5 +1,9 @@
 #!/usr/bin/bash
 
+## might help to install in conda / python venv:
+# pip install pyroomacoustics 
+# pip install ngsolve 
+
 TODAY=$(date '+%y%m%d')
 
 # change Path to desired blender executable

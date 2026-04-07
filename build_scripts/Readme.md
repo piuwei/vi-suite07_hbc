@@ -6,8 +6,10 @@ cd build_scripts
 !!!
 ```
 
-- build_blender -> Building with blender for use as Extension
-- wheel_it.py -> Get required Wheels
+- build_blender_extension.sh
+  - build with blender for use as Blender-Extension, needs wheels and
+    blender_manifest.toml configured
+- get_wheels.py
+  - Get required Wheels
 - requirements.txt
-- create_archives -> (non blender archives) ... obsolete
-- 
+  - Python Modules to get wheels for
