@@ -194,15 +194,15 @@ class No_Loc(Node, ViNodes):
 
                     self['epwtext'] = epwfile.read()
 
-                    if 'Vi Results' not in self.outputs['Location out'].valid:
-                        self.outputs['Location out'].valid.append('Vi Results')
+                    # if 'Vi Results' not in self.outputs['Location out'].valid:
+                    #     self.outputs['Location out'].valid = ['Location', 'Vi Results'] # .append('Vi Results')
             else:
                 self['epwtext'] = ''
 
-                if 'Vi Results' in self.outputs['Location out'].valid:
-                    self.outputs['Location out'].valid.remove('Vi Results')
+                # if 'Vi Results' in self.outputs['Location out'].valid:
+                #     self.outputs['Location out'].valid.remove('Vi Results')
 
-        socklink(self.outputs['Location out'], self.id_data.name)
+        # socklink2(self.outputs['Location out'], self.id_data)
         self['reslists'] = reslists
         (svp.latitude, svp.longitude) = epwlatilongi(context.scene, self) if self.loc == '1' and self.weather != 'None' else (svp.latitude, svp.longitude)
 
@@ -241,7 +241,7 @@ class No_Loc(Node, ViNodes):
 
     def update(self):
         for sock in self.outputs:
-            socklink(sock, self.id_data.name)
+            socklink2(sock, self.id_data)
 
         nodecolour(self, self.ready())
 
@@ -255,6 +255,10 @@ class No_Loc(Node, ViNodes):
 
         if self.loc == "1":
             newrow(layout, "Weather file:", self, 'weather')
+            row = layout.row()
+            row.label(text=f"Latitude: {context.scene.vi_params.latitude:.2f}")
+            row = layout.row()
+            row.label(text=f"Longitude: {context.scene.vi_params.longitude:.2f}")
 
             if self.weather_anim:
                 layout.prop_search(self, 'weather_anim_file', bpy.data, 'texts', text='File', icon='TEXT')
@@ -379,53 +383,56 @@ class No_Li_Con(Node, ViNodes):
     def nodeupdate(self, context):
         scene = context.scene
         svp = scene.vi_params
-        svp.vi_nodes = self.id_data
-        nodecolour(self, self['exportstate'] != self.ret_params())
 
-        if self.edoy < self.sdoy:
-            self.edoy = self.sdoy
+        if (svp.get('viparams') and svp['viparams']['vidisp'] != 'sp') or not svp.get('viparams'):
+            svp.vi_nodes = self.id_data
+            nodecolour(self, self['exportstate'] != self.ret_params())
 
-        if self.cbdm_edoy < self.sdoy:
-            self.cbdm_edoy = self.sdoy
+            if self.edoy < self.sdoy:
+                self.edoy = self.sdoy
 
-        if self.edoy == self.sdoy:
-            if self.ehour < self.shour:
-                self.ehour = self.shour
+            if self.cbdm_edoy < self.sdoy:
+                self.cbdm_edoy = self.sdoy
 
-        if self.cbdm_edoy == self.sdoy:
-            if self.cbdm_ehour < self.cbdm_shour:
-                self.cbdm_ehour = self.cbdm_shour
+            if self.edoy == self.sdoy:
+                if self.ehour < self.shour:
+                    self.ehour = self.shour
 
-        self['skynum'] = int(self.skymenu)
-        suns = [ob for ob in scene.objects if ob.type == 'LIGHT' and ob.data.type == 'SUN' and ob.visible_get()]
+            if self.cbdm_edoy == self.sdoy:
+                if self.cbdm_ehour < self.cbdm_shour:
+                    self.cbdm_ehour = self.cbdm_shour
 
-        if self.contextmenu == 'Basic' and ((self.skyprog == '0' and self['skynum'] < 3) or (self.skyprog == '1' and self.epsilon > 1)):
-            starttime = datetime.datetime(svp.year, 1, 1, int(self.shour), int((self.shour - int(self.shour)) * 60)) + \
-                datetime.timedelta(self.sdoy - 1) if self['skynum'] < 3 else datetime.datetime(2013, 1, 1, 12)
-            self['endframe'] = self.startframe + int(((24 * (self.edoy - self.sdoy) + self.ehour - self.shour) / self.interval)) if self.animated else [scene.frame_current]
-            frames = range(self.startframe, self['endframe'] + 1) if self.animated else [scene.frame_current]
-            scene.frame_start, scene.frame_end = self.startframe, frames[-1]
+            self['skynum'] = int(self.skymenu)
+            suns = [ob for ob in scene.objects if ob.type == 'LIGHT' and ob.data.type == 'SUN' and ob.visible_get()]
 
-            if suns:
-                sun = suns[0]
-                sun['VIType'] = 'Sun'
-                [delobj(bpy.context.view_layer, sun) for sun in suns[1:]]
-            else:
-                bpy.ops.object.light_add(type='SUN')
-                sun = bpy.context.object
+            if self.contextmenu == 'Basic' and ((self.skyprog == '0' and self['skynum'] < 3) or (self.skyprog == '1' and self.epsilon > 1)):
+                starttime = datetime.datetime(svp.year, 1, 1, int(self.shour), int((self.shour - int(self.shour)) * 60)) + \
+                    datetime.timedelta(self.sdoy - 1) if self['skynum'] < 3 else datetime.datetime(2013, 1, 1, 12)
+                self['endframe'] = self.startframe + int(((24 * (self.edoy - self.sdoy) + self.ehour - self.shour) / self.interval)) if self.animated else [scene.frame_current]
+                frames = range(self.startframe, self['endframe'] + 1) if self.animated else [scene.frame_current]
+                scene.frame_start, scene.frame_end = self.startframe, frames[-1]
 
-                if sun:
+                if suns:
+                    sun = suns[0]
                     sun['VIType'] = 'Sun'
+                    [delobj(bpy.context.view_layer, sun) for sun in suns[1:]]
+                else:
+                    bpy.ops.object.light_add(type='SUN')
+                    sun = bpy.context.object
 
-            if self.inputs['Location in'].links and suns:
-                sunposlivi(scene, self, frames, sun, starttime)
-        else:
-            for so in suns:
-                selobj(context.view_layer, so)
-                bpy.ops.object.delete()
+                    if sun:
+                        sun['VIType'] = 'Sun'
 
-        if sys.platform == 'win32' and (self.hdr or self.cbanalysismenu == '0') and self.cbdm_res == 3:
-            self.cbdm_res = 2
+                if self.inputs['Location in'].links and suns:
+                    sunposlivi(scene, self, frames, sun, starttime)
+
+            elif svp['viparams']['vidisp'] != 'sp':
+                for so in suns:
+                    selobj(context.view_layer, so)
+                    bpy.ops.object.delete()
+
+            if sys.platform == 'win32' and (self.hdr or self.cbanalysismenu == '0') and self.cbdm_res == 3:
+                self.cbdm_res = 2
 
     spectrumtype = [('0', "Visible", "Visible radiation spectrum calculation"), ('1', "Full", "Full radiation spectrum calculation")]
     skylist = [("0", "Sunny", "CIE Sunny Sky description"), ("1", "Partly Coudy", "CIE Sunny Sky description"),
@@ -1003,7 +1010,7 @@ class No_Li_Im(Node, ViNodes):
 
         self.run = 0
 
-    def presim(self):
+    def presim(self, svp):
         self.time = datetime.datetime.now()
         scene = bpy.context.scene
 
@@ -1039,8 +1046,8 @@ class No_Li_Im(Node, ViNodes):
             pmaps.append(self.pmap)
             self['pmapgnos'][sf] = self.pmapgno
             self['pmapcnos'][sf] = self.pmapcno
-            self['pmparams'][sf]['amentry'], self['pmparams'][sf]['pportentry'], self['pmparams'][sf]['gpentry'], self['pmparams'][sf]['cpentry'], self['pmparams'][sf]['gpfileentry'], self['pmparams'][sf]['cpfileentry'] = retpmap(self, frame, scene)
-
+            self['pmparams'][sf]['amentry'], self['pmparams'][sf]['pportentry'], self['pmparams'][sf]['gpentry'], self['pmparams'][sf]['cpentry'], self['pmparams'][sf]['copentry'], self['pmparams'][sf]['gpfileentry'], self['pmparams'][sf]['cpfileentry'], self['pmparams'][sf]['copfileentry'] = retpmap(self, frame, scene)
+            # amentry, pportentry, gpentry, cpentry, copentry, gpfileentry, cpfileentry, copfileentry = retpmap(self.simnode, frame, scene)
             if self.fisheye and self.fov <= 180:
                 self['viewparams'][sf]['-vth'] = ''
             elif self.fisheye and self.fov > 180:
@@ -1303,26 +1310,28 @@ class No_Li_Sim(Node, ViNodes):
             if cinnode.get('Options'):
                 row = layout.row()
                 row.label(text='Frames: {} - {}'.format(min([c['fs'] for c in (cinnode['Options'], ginnode['Options'])]), max([c['fe'] for c in (cinnode['Options'], ginnode['Options'])])))
-                newrow(layout, 'Photon map:', self, 'pmap')
 
-                if self.pmap:
-                    if all([os.path.isfile(f"{svp['viparams']['filebase']}-{frame}.{('gpm', 'copm')[cinnode['Options']['Context'] == 'CBDM' and cinnode['Options']['Type'] != '0']}") for frame in frames]):
-                        newrow(layout, 'Overwrite PM:', self, 'pmap_over')
+                if all([os.path.isfile(f"{svp['viparams']['filebase']}-{frame}.oct") for frame in frames]):
+                    newrow(layout, 'Overwrite files:', self, 'pmap_over')
 
-                        if self.pmap_over:
+                    if self.pmap_over:
+                        newrow(layout, 'Photon map:', self, 'pmap')
+
+                        if self.pmap:
                             newrow(layout, 'Global photons:', self, 'pmapgno')
                             newrow(layout, 'Caustic photons:', self, 'pmapcno')
                             newrow(layout, 'Back face visability:', self, 'bfv')
                             newrow(layout, 'Photon options:', self, 'pmapoptions')
                             newrow(layout, 'Preview photons:', self, 'pmappreview')
-                    else:
-                        newrow(layout, 'Global photons:', self, 'pmapgno')
-                        newrow(layout, 'Caustic photons:', self, 'pmapcno')
-                        newrow(layout, 'Back face visability:', self, 'bfv')
-                        newrow(layout, 'Photon options:', self, 'pmapoptions')
-                        newrow(layout, 'Preview photons:', self, 'pmappreview')
+                            newrow(layout, 'Direct pass:', self, 'direct')
 
-                    newrow(layout, 'Direct:', self, 'direct')
+                elif self.pmap:
+                    newrow(layout, 'Global photons:', self, 'pmapgno')
+                    newrow(layout, 'Caustic photons:', self, 'pmapcno')
+                    newrow(layout, 'Back face visability:', self, 'bfv')
+                    newrow(layout, 'Photon options:', self, 'pmapoptions')
+                    newrow(layout, 'Preview photons:', self, 'pmappreview')
+                    newrow(layout, 'Direct pass:', self, 'direct')
 
                 row = layout.row()
                 row.label(text="Accuracy:")
@@ -1365,7 +1374,12 @@ class No_Li_Sim(Node, ViNodes):
 
         self.run = 0
 
-    def presim(self):
+    def presim(self, svp):
+        self['frames'] = self.ret_frames()
+
+        # if not all([os.path.isfile(svp['viparams']['filebase'] + f"-{frame}.oct") for frame in self['frames']]):
+        #     self.pmap_over = 0
+
         self['coptions'] = self.inputs['Context in'].links[0].from_node['Options']
         self['goptions'] = self.inputs['Geometry in'].links[0].from_node['Options']
         self['radfiles'], self['reslists'] = {}, [[]]
@@ -1379,8 +1393,9 @@ class No_Li_Sim(Node, ViNodes):
             self['rvuparams'] = ' {} '.format(self.cusacc) if self.csimacc == '0' else ''.join([' {} {} '.format(k, rvuparams[k][int(self.simacc) - 1]) for k in rvuparams])
 
     def sim(self, scene):
-        svp = scene.vi_params
-        self['frames'] = range(svp['liparams']['fs'], svp['liparams']['fe'] + 1)
+        pass
+        # svp = scene.vi_params
+        #
 
     def postsim(self, calcout):
         self['exportstate'] = self.ret_params()
@@ -1742,7 +1757,7 @@ class No_En_Geo(Node, ViNodes):
     netgen: BoolProperty(name="", description="Netgen mesh extraction", update=nodeupdate)
     collection: StringProperty(description="Select collection", update=nodeupdate)
     write_step: BoolProperty(name="", description="Write STEP file", update=nodeupdate)
-    
+
     def init(self, context):
         self.outputs.new('So_En_Geo', 'Geometry out')
         self['exportstate'] = ''
@@ -2122,6 +2137,9 @@ class So_En_ResU(NodeSocket):
     def draw(self, context, layout, node, text):
         layout.label(text=self.bl_label)
 
+    def ret_valid(self, node):
+        return ['Vi Results']
+
 
 class ViEnRIn(So_En_ResU):
     '''Chart input socket'''
@@ -2293,7 +2311,6 @@ class ViEnRIn(So_En_ResU):
 
                     self.node['resdict'][ax] = resdict
                     self.node.inputs[ax].r_len = self.node.inputs['X-axis'].r_len if self.node['resdict'][ax] else 0
-
 
     def update_entries(self, context):
         axes = ('X-axis', 'Y-axis 1', 'Y-axis 2', 'Y-axis 3')
@@ -3523,6 +3540,12 @@ class No_Vi_Metrics(Node, ViNodes):
                         if self['res']['rt'] and type(self['res']['rt']) is float:
                             row = layout.row()
                             row.label(text='RT60 (s) = {:.3f}s'.format(self['res']['rt']))
+                        if self['res']['tsl'] and type(self['res']['tsl']) is float:
+                            row = layout.row()
+                            row.label(text='TSL (dB) = {:.3f}dB'.format(self['res']['tsl']))
+                        if self['res']['sti'] and type(self['res']['sti']) is float:
+                            row = layout.row()
+                            row.label(text='STI = {:.3f}'.format(self['res']['sti']))
 
     def update(self):
         try:
@@ -4255,6 +4278,8 @@ class No_Vi_Metrics(Node, ViNodes):
 
         elif self.metric == '7':
             self['res']['rt'] = 0
+            self['res']['tsl'] = 0
+            self['res']['sti'] = 0
 
             for r in self['rl']:
                 if r[0] == self.frame_menu:
@@ -4264,6 +4289,10 @@ class No_Vi_Metrics(Node, ViNodes):
                                 # rts = array([float(p) for p in r[4].split()])
                                 # rt = float(r[4])
                                 self['res']['rt'] = float(r[4])
+                            elif r[3] == 'TSL':
+                                self['res']['tsl'] = float(r[4])
+                            elif r[3] == 'STI':
+                                self['res']['sti'] = float(r[4])
 
 
 class No_CSV(Node, ViNodes):
@@ -4331,7 +4360,10 @@ class So_Vi_Loc(NodeSocket):
         return (0.45, 1.0, 0.45, 1.0)
 
     def ret_valid(self, node):
-        return ['Location']
+        if self.is_output and node.loc == '1' and os.path.isfile(node.weather):
+            return ['Location', 'Vi Results']
+        else:
+            return ['Location']
 
 
 class So_Li_Geo(NodeSocket):
@@ -4716,6 +4748,7 @@ class No_Flo_NG(Node, ViNodes):
 
     poly: BoolProperty(name='', description='Create polygonal mesh', default=0, update=nodeupdate)
     maxcs: FloatProperty(name="m", description="Max global cell size", min=0, max=100, default=1, update=nodeupdate)
+    refinement: EnumProperty(items=[('0', 'Coarse', 'Coarse mesh'), ('1', 'Moderate', 'Moderate mesh'), ('2', 'Fine', 'Fine mesh')], name='', description='Scenario type', default='0', update=nodeupdate)
     grading: FloatProperty(name="", description="Small to large cell inflation", min=0, max=0.99, default=0.1, update=nodeupdate)
     processors: IntProperty(name="", description="Number of processers", min=0, max=32, default=1, update=nodeupdate)
     optimisations: IntProperty(name="", description="Number of optimisation steps", min=0, max=32, default=3, update=nodeupdate)
@@ -4741,7 +4774,8 @@ class No_Flo_NG(Node, ViNodes):
 
         if self.inputs and self.inputs['Case in'].links:
             if all(flo_libs):
-                newrow(layout, 'Cell size:', self, 'maxcs')
+                newrow(layout, 'Max cell size:', self, 'maxcs')
+                newrow(layout, 'Refinement:', self, 'refinement')
                 newrow(layout, 'Inflation:', self, 'grading')
                 newrow(layout, 'Optimisations:', self, 'optimisations')
                 newrow(layout, 'Attempts:', self, 'maxsteps')
@@ -9155,24 +9189,24 @@ class No_En_Mat_ShC(Node, EnViMatNodes):
         try:
             if self.outputs['Control'].links[0].to_node.bl_idname == 'No_En_Mat_Sc':
                 return [(self.ttuple[t], self.ttuple[t], self.ttuple[t]) for t in (0, 1, 2)]
-            
+
             elif self.outputs['Control'].links[0].to_node.bl_idname in ('No_En_Mat_Bl', 'No_En_Mat_Sh', 'No_En_Mat_SG'):
                 return [(self.ttuple[t], self.ttuple[t], self.ttuple[t]) for t in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)]
-            
+
             else:
                 return [(t, t, t) for t in self.ttuple]
-        
+
         except Exception:
             return [('None', 'None', 'None')]
 
     def schupdate(self, context):
         if self.ctype not in ("AlwaysOn", "AlwaysOff", "OnIfHighGlare"):
             self.inputs['Schedule'].hide = False
-        
+
         else:
             if self.inputs['Schedule'].links:
                 self.id_data.links.remove(self.inputs['Schedule'].links[0])
-            
+
             self.inputs['Schedule'].hide = True
 
         if self.ctype == 'OnIfScheduleAllows':
@@ -9187,15 +9221,15 @@ class No_En_Mat_ShC(Node, EnViMatNodes):
         if self.sac != 'ScheduledSlatAngle':
             if self.inputs['Slat schedule'].links:
                 self.id_data.links.remove(self.inputs['Slat schedule'].links[0])
-            
+
             self.inputs['Slat schedule'].hide = True
-        
+
         else:
             self.inputs['Slat schedule'].hide = False
 
             if not self.inputs['Slat schedule'].links:
                 nodecolour(self, 1)
-            
+
     ctype: EnumProperty(items=type_menu, name="", description="Shading schedule", update=schupdate)
     sp: FloatProperty(name="", description="Setpoint (W/m2, W or deg C)", min=0.0, max=1000, default=20)
     sac: EnumProperty(items=[("FixedSlatAngle", "FixedSlatAngle", "Constant slat angle"), ("ScheduledSlatAngle", "ScheduledSlatAngle", "Scheduled slat angle"),
@@ -9791,7 +9825,7 @@ class No_Au_Sim(Node, ViNodes):
 
             if self.netgen:
                 layout.prop_search(self, 'collection', bpy.data, 'collections', text='', icon='COLLECTION_COLOR_05')
-            else:    
+            else:
                 newrow(layout, "Animated:", self, 'animated')
 
                 if self.animated:

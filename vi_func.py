@@ -1889,11 +1889,6 @@ def sunpath(context):
     svp = scene.vi_params
     suns = [ob for ob in scene.objects if ob.parent and ob.type == 'LIGHT' and ob.data.type == 'SUN' and ob.parent.get('VIType') == "SPathMesh"]
 
-    # if context.scene.vi_params['viparams'].get('North') and context.scene.vi_params['viparams'] != (0, 1, 0):
-    #     phi_mod = Vector((0, 1, 0)).rotation_difference(Vector(bpy.context.scene.vi_params['viparams']['North'])).to_euler('XYZ')[2]
-    # else:
-    #     phi_mod = 0
-
     if svp.get('spparams') and svp['spparams'].get('suns') and svp['spparams']['suns'] == '0':
         if suns:
             alt, azi, beta, phi = solarPosition(svp.sp_sd, svp.sp_sh, svp.latitude, svp.longitude)
@@ -1901,18 +1896,27 @@ def sunpath(context):
             suns[0].location.x = -(100**2 - (suns[0].location.z)**2)**0.5 * sin(phi)
             suns[0].location.y = -(100**2 - (suns[0].location.z)**2)**0.5 * cos(phi)
             suns[0].data.energy = svp.sp_sun_strength
-            suns[0].data.angle = svp.sp_sun_angle
+            suns[0].data.angle = svp.sp_sun_angle * pi / 180
             suns[0].rotation_euler = pi * 0.5 - beta, 0, -phi
             sky_vec = suns[0].location.normalized()
             sky_vec.rotate(suns[0].parent.matrix_world.to_euler())
             scene.display.light_direction = (sky_vec[0], sky_vec[2], -sky_vec[1])
 
+            if context.screen:
+                for a in context.screen.areas:
+                    if a.type == 'VIEW_3D':
+                        a.spaces[0].shading.shadow_intensity = svp.sp_sun_strength * 0.5
+
             if scene.render.engine == 'CYCLES':
                 if scene.world.node_tree:
                     for stnode in [no for no in scene.world.node_tree.nodes if no.bl_label == 'Sky Texture']:
                         stnode.sun_direction = -sin(phi), -cos(phi), sin(beta)
-                        for bnode in [no for no in scene.world.node_tree.nodes if no.bl_label == 'Background']:
-                            bnode.inputs[1].default_value = 1.5 + sin(beta) * 0.5
+                        stnode.sun_elevation = beta
+                        stnode.sun_rotation = phi - pi
+                        stnode.sun_intensity = 0
+
+                        # for bnode in [no for no in scene.world.node_tree.nodes if no.bl_label == 'Background']:
+                        #     bnode.inputs[1].default_value = 1.5 + sin(beta) * 0.5
 
                 if suns[0].data.node_tree:
                     for blnode in [node for node in suns[0].data.node_tree.nodes if node.bl_label == 'Blackbody']:
@@ -2171,7 +2175,7 @@ def socklink(sock, ng):
                     
         except Exception as e:
             print(e)
-            if sock.links:
+            if sock.links and sock.links[-1] in bpy.data.node_groups[ng].links:
                 bpy.data.node_groups[ng].links.remove(sock.links[-1])
 
 def socklink2(sock, ng):
@@ -2264,47 +2268,45 @@ def sunapply(scene, sun, values, solposs, frames, sdist):
     sun.data.animation_data_clear()
     sun.animation_data_clear()
     action = bpy.data.actions.get("EnVi Sun")
-
+    print('hi')
     if action:
         bpy.data.actions.remove(action, do_unlink=True)
 
+    scene_action = bpy.data.actions.get("VI World")
+
+    if scene_action:
+        bpy.data.actions.remove(scene_action, do_unlink=True)
+
+    xyz, spfcs, srfcs, sws = [0, 1, 2], [], [], []
     action = bpy.data.actions.new(name="EnVi Sun")
     sun.animation_data_create().action = action
-    sunposx = action.fcurve_ensure_for_datablock(sun, "location", index=0)
-    sunposy = action.fcurve_ensure_for_datablock(sun, "location", index=1)
-    sunposz = action.fcurve_ensure_for_datablock(sun, "location", index=2)
-    sunposx.keyframe_points.add(len(frames))
-    sunposy.keyframe_points.add(len(frames))
-    sunposz.keyframe_points.add(len(frames))
-    sunrotx = action.fcurve_ensure_for_datablock(sun, "rotation_euler", index=0)
-    sunroty = action.fcurve_ensure_for_datablock(sun, "rotation_euler", index=1)
-    sunrotz = action.fcurve_ensure_for_datablock(sun, "rotation_euler", index=2)
-    sunrotx.keyframe_points.add(len(frames))
-    sunroty.keyframe_points.add(len(frames))
-    sunrotz.keyframe_points.add(len(frames))
-    sunenergy = action.fcurve_ensure_for_datablock(sun, "energy")
+    scene_action = bpy.data.actions.new(name="VI World")
+    scene.animation_data_create().action = scene_action
+
+    for axis in xyz:
+        spfcs.append(action.fcurve_ensure_for_datablock(sun, "location", index=axis))
+        spfcs[-1].auto_smoothing = 'NONE'
+        spfcs[-1].keyframe_points.add(len(frames))
+
+        for kp in spfcs[-1].keyframe_points:
+            kp.interpolation = "LINEAR"
+
+        srfcs.append(action.fcurve_ensure_for_datablock(sun, "rotation_euler", index=axis))
+        srfcs[-1].auto_smoothing = 'NONE'
+        srfcs[-1].keyframe_points.add(len(frames))
+
+        for kp in srfcs[-1].keyframe_points:
+            kp.interpolation = "LINEAR"
+
+        sws.append(scene_action.fcurve_ensure_for_datablock(scene, "display.light_direction", index=axis))
+        sws[-1].auto_smoothing = 'NONE'
+        sws[-1].keyframe_points.add(len(frames))
+
+        for kp in sws[-1].keyframe_points:
+            kp.interpolation = "LINEAR"
+
+    sunenergy = action.fcurve_ensure_for_datablock(sun, "data.energy", index=0)
     sunenergy.keyframe_points.add(len(frames))
-
-# This is an attempt to use low level routines for node value animation but it don't work.
-    if sun.data.node_tree:
-        sun.data.node_tree.animation_data_clear()
-        action = bpy.data.actions.get("EnVi Sun Node")
-
-        if action:
-            bpy.data.actions.remove(action, do_unlink=True)
-
-        sun.data.node_tree.animation_data_create()
-        sun.data.node_tree.animation_data.action = bpy.data.actions.new(name="EnVi Sun Node")
-        emnodes = [emnode for emnode in sun.data.node_tree.nodes if emnode.bl_label == 'Emission']
-        bbnodes = [bbnode for bbnode in sun.data.node_tree.nodes if bbnode.bl_label == 'Blackbody']
-
-        for emnode in emnodes:
-            em1 = sun.data.node_tree.animation_data.action.fcurves.new(data_path='nodes["{}"].inputs[1].default_value'.format(emnode.name))
-            em1.keyframe_points.add(len(frames))
-
-        for bbnode in bbnodes:
-            bb1 = sun.data.node_tree.animation_data.action.fcurves.new(data_path='nodes["{}"].inputs[0].default_value'.format(bbnode.name))
-            bb1.keyframe_points.add(len(frames))
 
     if scene.world.node_tree:
         scene.world.node_tree.animation_data_clear()
@@ -2318,12 +2320,14 @@ def sunapply(scene, sun, values, solposs, frames, sdist):
         stnodes = [stnode for stnode in scene.world.node_tree.nodes if stnode.bl_label == 'Sky Texture']
 
         for stnode in stnodes:
-            st1x = scene.world.node_tree.animation_data.action.fcurves.new(data_path='nodes["{}"].sun_direction'.format(stnode.name), index=0)
-            st1y = scene.world.node_tree.animation_data.action.fcurves.new(data_path='nodes["{}"].sun_direction'.format(stnode.name), index=1)
-            st1z = scene.world.node_tree.animation_data.action.fcurves.new(data_path='nodes["{}"].sun_direction'.format(stnode.name), index=2)
-            st1x.keyframe_points.add(len(frames))
-            st1y.keyframe_points.add(len(frames))
-            st1z.keyframe_points.add(len(frames))
+            action = scene.world.node_tree.animation_data.action
+
+            for axis in xyz:
+                st1 = action.fcurve_ensure_for_datablock(datablock=scene.world.node_tree, data_path='nodes["Sky Texture"].sun_direction', index=axis)
+                st1.keyframe_points.add(len(frames))
+
+                for kp in st1.keyframe_points:
+                    kp.interpolation = "LINEAR"
 
     for f, frame in enumerate(frames):
         (sun.data.shadow_soft_size, sun.data.energy) = values[f][:2]
@@ -2337,25 +2341,18 @@ def sunapply(scene, sun, values, solposs, frames, sdist):
         if scene.world.node_tree:
             if 'Sky Texture' in [no.bl_label for no in scene.world.node_tree.nodes]:
                 skydir = -sin(solposs[f][3]), -cos(solposs[f][3]), sin(solposs[f][2])
-                st1x.keyframe_points[f].co = frame, skydir[0]
-                st1y.keyframe_points[f].co = frame, skydir[1]
-                st1z.keyframe_points[f].co = frame, skydir[2]
+                for axis in xyz:
+                    st1 = action.fcurve_ensure_for_datablock(datablock=scene.world.node_tree, data_path='nodes["Sky Texture"].sun_direction', index=axis)
+                    st1.keyframe_points[f].co = frame, skydir[axis]
+
                 scene.world.node_tree.nodes["Sky Texture"].sun_elevation = solposs[f][2]
                 scene.world.node_tree.nodes["Sky Texture"].sun_rotation = solposs[f][3] - pi
 
-        if scene.render.engine == 'CYCLES' and sun.data.node_tree:
-            for emnode in emnodes:
-                em1.keyframe_points[f].co = frame, values[f][1]
-        if sun.data.node_tree:
-            for bbnode in bbnodes:
-                bb1.keyframe_points[f].co = frame, retsunct(solposs[f][2])
+        for axis in xyz:
+            spfcs[axis].keyframe_points[f].co = frame, sunpos[axis]
+            srfcs[axis].keyframe_points[f].co = frame, sunrot[axis]
+            sws[axis].keyframe_points[f].co = frame, scene.display.light_direction[axis]
 
-        sunposx.keyframe_points[f].co = frame, sunpos[0]
-        sunposy.keyframe_points[f].co = frame, sunpos[1]
-        sunposz.keyframe_points[f].co = frame, sunpos[2]
-        sunrotx.keyframe_points[f].co = frame, sunrot[0]
-        sunroty.keyframe_points[f].co = frame, sunrot[1]
-        sunrotz.keyframe_points[f].co = frame, sunrot[2]
         sunenergy.keyframe_points[f].co = frame, values[f][1]
 
     sun.data.cycles.use_multiple_importance_sampling = True

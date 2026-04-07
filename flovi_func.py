@@ -24,6 +24,7 @@ from mathutils import Vector
 from .vi_func import selobj
 from .vi_dicts import flovi_b_dict, flovi_p_dict, flovi_u_dict, flovi_nut_dict, flovi_k_dict, flovi_epsilon_dict, flovi_t_dict, flovi_a_dict, flovi_prgh_dict, flovi_rad_dict, flovi_id_dict
 
+
 ofheader = r'''/*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM:    The Open Source CFD Toolbox        |
@@ -32,6 +33,7 @@ ofheader = r'''/*--------------------------------*- C++ -*----------------------
 |    \\/     M anipulation  | Created by:  FloVi (part of the VI-Suite)       |
 \*---------------------------------------------------------------------------*/''' + '\n\n'
 
+valid_dockers = ('13', '13-20260212')
 
 def fileheader(o):
     return '''FoamFile
@@ -200,6 +202,7 @@ def ret_fvrad_menu(mat, context):
     else:
         return [('None', 'None', 'None')]
 
+
 def ret_fvi_menu(mat, context):
     svp = context.scene.vi_params
 
@@ -209,6 +212,7 @@ def ret_fvi_menu(mat, context):
         return [('{}'.format(b), '{}'.format(b), '{} boundary type'.format(b)) for b in flovi_id_bounds[svp['flparams']['solver_type']][mat.flovi_bmb_type]]
     else:
         return [('None', 'None', 'None')]
+
 
 def write_header(func):
     def wrapper(o, expnode):
@@ -251,14 +255,15 @@ def write_fvdict(text, fvdict):
 
 
 def fvboundwrite(o):
+    mats = [mat for mat in o.data.materials if mat]
     boundary = ''
 
-    for mat in o.data.materials:
+    for mat in mats:
         boundary += "  {}\n  {{\n    type {};\n    faces\n    (\n".format(mat.name, ("patch", "wall", "symmetry", "empty")[int(mat.flovi_bmb_type)])
-        faces = [face for face in o.data.polygons if o.data.materials[face.material_index] == mat]
+        faces = [face for face in o.data.polygons if mats[face.material_index] == mat]
 
         for face in faces:
-            boundary += "      ("+" ".join([str(v) for v in face.vertices])+")\n"
+            boundary += "      (" + " ".join([str(v) for v in face.vertices]) + ")\n"
 
         boundary += "    );\n  }\n"
     boundary += ");\n\nmergePatchPairs\n(\n);"
@@ -441,17 +446,17 @@ def fvvarwrite(scene, obs, node):
                 except Exception:
                     pass
 
-        uval = node.uval if node.uval_type == '0' else Vector((sin(node.uval_azi * pi/180) * node.umag, cos(node.uval_azi * pi/180) * node.umag, 0))
+        uval = node.uval if node.uval_type == '0' else Vector((sin(node.uval_azi * pi / 180) * node.umag, cos(node.uval_azi * pi / 180) * node.umag, 0))
         svp['flparams'][str(frame)] = {}
         svp['flparams'][str(frame)]['Udir'] = uval.normalized()
         svp['flparams'][str(frame)]['Uspeed'] = uval.length
 
         if not node.buoyancy:
             pentry = "dimensions [{} {} {} {} 0 0 0];\ninternalField   uniform {};\n\nboundaryField\n{{\n".format('0', '2', '-2', '0',
-                                                                                                                '{}'.format(node.pnormval))
+                                                                                                                  '{}'.format(node.pnormval))
         else:
             pentry = "dimensions [{} {} {} {} 0 0 0];\ninternalField   uniform {};\n\nboundaryField\n{{\n".format('1', '-1', '-2', '0',
-                                                                                                                '{}'.format(node.pabsval))
+                                                                                                                  '{}'.format(node.pabsval))
 
         (Uentry, nutildaentry, nutentry, kentry, eentry, oentry, tentry, p_rghentry, aentry, Gentry, Ientry) = ["dimensions [{} {} {} {} 0 0 0];\ninternalField   uniform {};\n\nboundaryField\n{{\n".format(*var) for var in (
                                                                                     ('0', '1', '-1', '0', '({:.4f} {:.4f} {:.4f})'.format(*uval)),
@@ -466,7 +471,9 @@ def fvvarwrite(scene, obs, node):
                                                                                     ('1', '0', '-3', '0', '{:.4f}'.format(node.Gval)),
                                                                                     ('1', '0', '-3', '0', '{:.4f}'.format(node.Gval)))]
         for o in obs:
-            for mat in o.data.materials:
+            mats = [mat for mat in o.data.materials if mat]
+            
+            for mat in mats:
                 mvp = mat.vi_params
                 matname = '{}_{}'.format(o.name, mat.name)
                 b_dict[matname] = {}
@@ -560,35 +567,42 @@ def fvfuncwrite(svp, node, dp):
     fdict = {}
 
     if node.comfort:
-        fdict['comfort'] = {'libs': '("libfieldFunctionObjects.so")', 'type': 'comfort', 'clothing': f'{node.clo*0.155:.2f}',
-                                         'metabolicRate': f'{node.met:.2f}', 'relHumidity': f'{node.rh * 0.01:.2f}',
-                                         'writeControl': 'writeTime', 'executeControl': 'writeTime'}
+        fdict['comfort'] = {'libs': '("libfieldFunctionObjects.so")', 'type': 'comfort', 'clothing': f'{node.clo * 0.155:.2f}',
+                            'metabolicRate': f'{node.met:.2f}', 'relHumidity': f'{node.rh * 0.01:.2f}',
+                            'writeControl': 'writeTime', 'executeControl': 'writeTime'}
     if node.age:
         fdict['age'] = {'libs': '("libfieldFunctionObjects.so")', 'type': 'age', 'diffusion': 'on', 'writeControl': 'writeTime', 'executeControl': 'writeTime'}
 
     for o in bpy.data.objects:
+        if o.type == 'MESH':
+            mats = [mat for mat in o.data.materials if mat]
+
         ovp = o.vi_params
 
         if o.type == 'EMPTY' and ovp.flovi_probe:
             ps.append(o)
+
         elif o.type == 'EMPTY' and o.name == node.p_ref_point and node.p_ref != '0':
             ps.append(o)
+
         elif o.type == 'MESH' and ovp.vi_type == '6' and o.visible_get():
             for frame in range(svp['flparams']['start_frame'], svp['flparams']['end_frame'] + 1):
                 if not os.path.isdir(os.path.join(svp['flparams']['offilebase'], str(frame), 'constant', 'triSurface')):
                     os.makedirs(os.path.join(svp['flparams']['offilebase'], str(frame), 'constant', 'triSurface'))
-                
+
                 ovp.write_stl(dp, os.path.join(svp['flparams']['offilebase'], str(frame), 'constant', 'triSurface', '{}.stl'.format(o.name)))
-            
+
             ss.append(o.name)
 
-        if o.type == 'MESH' and ovp.vi_type in ('2', '3') and any([m.vi_params.flovi_probe for m in o.data.materials]):
-            for mat in o.data.materials:
+            # fdict['surfaceFlowRate'] = {'libs': '("fieldFunctionObjects")', 'type': 'triSurfaceVolumetricFlowRate', 'writeControl': 'timeStep', 'writeInterval': f'{node.w_int}', 'writeFields': 'false', 'surface': f'{o.name}', 'field': 'U'}
+
+        if o.type == 'MESH' and ovp.vi_type in ('2', '3') and any([m.vi_params.flovi_probe for m in mats]):
+            for mat in mats:
                 if mat.vi_params.flovi_probe:
                     bs.append('{}_{}'.format(o.name, mat.name))
 
-        if o.type == 'MESH' and ovp.vi_type in ('2', '3') and any([m.vi_params.flovi_htc for m in o.data.materials]):
-            for mat in o.data.materials:
+        if o.type == 'MESH' and ovp.vi_type in ('2', '3') and any([m.vi_params.flovi_htc for m in mats]):
+            for mat in mats:
                 if mat.vi_params.flovi_htc and mat.vi_params.flovi_bmb_type in ('Solid', 'Wall'):
                     htcs.append('{}_{}'.format(o.name, mat.name))
 
@@ -598,8 +612,8 @@ def fvfuncwrite(svp, node, dp):
 
         for p in ps:
             fdict[p.name.replace(" ", "_")] = {'libs': '("libsampling.so")', 'type': 'probes', 'name': '{}'.format(p.name.replace(" ", "_")), 'writeControl': 'timeStep',
-                                          'writeInterval': f'{node.w_int}', 'fields': '({0})'.format(probe_vars),
-                                          'probeLocations\n(\n{}\n)'.format('   ({0[0]} {0[1]} {0[2]})'.format(p.location)): ''}
+                                               'writeInterval': f'{node.w_int}', 'fields': '({0})'.format(probe_vars),
+                                               'probeLocations\n(\n{}\n)'.format('   ({0[0]} {0[1]} {0[2]})'.format(p.location)): ''}
 
     else:
         bpy.context.scene.vi_params['flparams']['probes'] = []
@@ -609,13 +623,13 @@ def fvfuncwrite(svp, node, dp):
 
     if bs:
         for b in bs:
-            fdict[b] = {'type': 'surfaceFieldValue', 'libs': '("libfieldFunctionObjects.so")', 'log': 'yes', 'writeFields': 'false', 'patch': '{}'.format(b),
-                                     'operation': 'areaAverage', 'fields    (p U)': ''}
-            fdict[b+'_vf'] = {'type': 'surfaceFieldValue', 'libs': '("libfieldFunctionObjects.so")', 'log': 'yes', 'writeFields': 'false', 'patch': '{}'.format(b),
-                                     'operation': 'areaNormalIntegrate', 'fields    (U)': ''}
+            fdict[b] = {'type': 'surfaceFieldValue', 'libs': '("libfieldFunctionObjects.so")', 'log': 'yes', 'writeControl': 'writeTime', 'writeFields': 'false', 'patch': '{}'.format(b),
+                        'operation': 'areaAverage', 'fields    (p U)': ''}
+            fdict[b + '_vf'] = {'type': 'surfaceFieldValue', 'libs': '("libfieldFunctionObjects.so")', 'log': 'yes', 'writeControl': 'writeTime', 'writeFields': 'false', 'patch': '{}'.format(b),
+                                'operation': 'areaNormalIntegrate', 'fields    (U)': ''}
     if htcs:
-        fdict['htc'] = {'type': 'wallHeatTransferCoeff', 'libs': '("libfieldFunctionObjects.so")', 'model': 'kappaEff', 'patches' : '({})'.format(' '.join(list(set(htcs)))), 'writeControl': 'timeStep',
-                                     'writeInterval': f'{node.w_int}', 'rho': '1.225', 'Cp': '1005', 'Pr': '0.707', 'Prt': '0.9'}
+        fdict['htc'] = {'type': 'wallHeatTransferCoeff', 'libs': '("libfieldFunctionObjects.so")', 'model': 'kappaEff', 'patches': '({})'.format(' '.join(list(set(htcs)))), 'writeControl': 'timeStep',
+                        'writeInterval': f'{node.w_int}', 'rho': '1.225', 'Cp': '1005', 'Pr': '0.707', 'Prt': '0.9'}
 
     return write_fvdict(htext, fdict)
 
@@ -692,10 +706,10 @@ def fvsolwrite(svp, node):
                 sol_dict['solvers']['"Ii.*"'] = {'solver': 'GAMG', 'tolerance': '1e-4', 'relTol': '0', 'smoother': 'symGaussSeidel', 'maxIter': '5', 'nPostSweeps': '1'}
                 sol_sol_dict['residualControl']['ILambda.*'] = '1e-3'
                 sol_dict['relaxationFactors']['equations']['ILambda.*'] = '0.7'
-    
+
     if node.age:
         sol_dict['solvers']['age'] = {'$U': '', 'relTol': '0.001'}
-    
+
     htext = ofheader + write_ffile('dictionary', 'system', 'fvSolution')
     return write_fvdict(htext, sol_dict)
 
@@ -713,12 +727,12 @@ def fvtppwrite(svp):
 
     elif svp['flparams']['solver_type'] == 'bf':
         tppdict = {'thermoType': {'type': 'heRhoThermo', 'mixture': 'pureMixture',
-                   'transport': 'const', 'thermo': 'eConst', 'equationOfState': 'Boussinesq',
-                   'specie': 'specie', 'energy': 'sensibleInternalEnergy'},
+                                  'transport': 'const', 'thermo': 'eConst', 'equationOfState': 'Boussinesq',
+                                  'specie': 'specie', 'energy': 'sensibleInternalEnergy'},
                    'mixture': {'specie': {'molWeight': '28.96'},
-                   'equationOfState': {'rho0': '1', 'T0': '300', 'beta': '3e-03'},
-                   'thermodynamics': {'Cv': '772', 'Hf': '0'},
-                   'transport': {'mu': '1e-05', 'Pr': '0.7'}}}
+                               'equationOfState': {'rho0': '1', 'T0': '300', 'beta': '3e-03'},
+                               'thermodynamics': {'Cv': '772', 'Hf': '0'},
+                               'transport': {'mu': '1e-05', 'Pr': '0.7'}}}
 
     return write_fvdict(htext, tppdict)
 
@@ -743,14 +757,14 @@ def fvtpwrite():
 def fvrpwrite(node):
     htext = ofheader + write_ffile('dictionary', 'constant', 'radiationProperties')
     raddict = {'0': {'radiation': 'on', 'radiationModel': 'P1',
-                'solverFreq': '1', 'absorptionEmissionModel': 'constant',
-                'constantCoeffs': {'absorptivity': '0.5', 'emissivity': '0.5', 'E': '0'},
-                'scatterModel': 'none', 'sootModel': 'none'},
-                '1': {'radiation': 'on', 'radiationModel': 'fvDOM',
-                'fvDOMCoeffs': {'nPhi': '3', 'nTheta': '5', 'tolerance': '1e-3', 'maxIter': '10'},
-                'solverFreq':'10', 'absorptionEmissionModel':'constant',
-                'constantCoeffs': {'absorptivity': '0.5', 'emissivity': '0.5', 'E': '0'},
-                'scatterModel': 'none', 'sootModel': 'none', 'useSolarLoad': ('false', 'true')[node.radiation and node.radmodel == '1' and node.solar]}}
+                     'solverFreq': '1', 'absorptionEmissionModel': 'constant',
+                     'constantCoeffs': {'absorptivity': '0.5', 'emissivity': '0.5', 'E': '0'},
+                     'scatterModel': 'none', 'sootModel': 'none'},
+               '1': {'radiation': 'on', 'radiationModel': 'fvDOM',
+                     'fvDOMCoeffs': {'nPhi': '3', 'nTheta': '5', 'tolerance': '1e-3', 'maxIter': '10'},
+                     'solverFreq':'10', 'absorptionEmissionModel':'constant',
+                     'constantCoeffs': {'absorptivity': '0.5', 'emissivity': '0.5', 'E': '0'},
+                     'scatterModel': 'none', 'sootModel': 'none', 'useSolarLoad': ('false', 'true')[node.radiation and node.radmodel == '1' and node.solar]}}
 
     if node.solar:
         raddict[node.radmodel]['SolarLoadCoeffs'] = {'sunDirectionModel': 'sunDirConstant', 'sunDirection': '({0[0]} {0[1]} {0[2]})'.format(-bpy.data.objects[node.sun].location),
@@ -759,6 +773,7 @@ def fvrpwrite(node):
                                                      'absorptionEmissionModel': 'none', 'scatterModel': 'none', 'sootModel': 'none'}
 
     return (write_fvdict(htext, raddict[node.radmodel]))
+
 
 def fvmodwrite(node):
     htext = ofheader + write_ffile('dictionary', 'constant', 'fvModels')
@@ -847,6 +862,8 @@ def fvobjwrite(scene, fvos, bmo):
 
     for frame in range(svp['flparams']['start_frame'], svp['flparams']['end_frame'] + 1):
         for o in fvos:
+            mats = [mat for mat in o.data.materials if mat]
+            
             with open(os.path.join(scene['flparams']['offilebase'], str(frame), 'constant', 'trisurface', '{}.obj'.format(o.name)), 'w') as objfile:
                 bm = bmesh.new()
                 tempmesh = o.to_mesh(scene=scene, apply_modifiers=True, settings='PREVIEW')
@@ -857,7 +874,7 @@ def fvobjwrite(scene, fvos, bmo):
                 vcos = ''.join(['v {0[0]} {0[1]} {0[2]}\n'.format(v.co) for v in bm.verts])
                 objfile.write(objheader+vcos)
 
-                for m, mat in enumerate(o.data.materials):
+                for m, mat in enumerate(mats):
                     objfile.write('g {}\n'.format(mat.name) + ''.join(['f {} {} {}\n'.format(*[v.index + 1 for v in f.verts]) for f in bmesh.ops.triangulate(bm, faces=bm.faces)['faces'] if f.material_index == m]))
 
                 objfile.write('#{}'.format(len(bm.faces)))
@@ -868,7 +885,7 @@ def oftomesh(ofb, vl, fomats, st, ns, nf, bo):
     vcoords = []
     findices = []
     fi = []
-    fn,  f = 0, 0
+    fn, f = 0, 0
     prevline = ''
 
     with open(os.path.join(ofb, st, 'polyMesh', 'points'), 'r') as mfile:
@@ -883,7 +900,7 @@ def oftomesh(ofb, vl, fomats, st, ns, nf, bo):
                     try:
                         fi.append(int(line))
                         fn -= 1
-                        
+
                     except Exception:
                         pass
 
@@ -895,7 +912,7 @@ def oftomesh(ofb, vl, fomats, st, ns, nf, bo):
 
                     fi = []
                     fn = 0
-                                       
+
                 elif '(' in line and ')' in line:
                     if f >= ns[0] or not bo:
                         findices.append([int(x) for x in line.split('(')[1].split(')')[0].split()])
@@ -908,7 +925,7 @@ def oftomesh(ofb, vl, fomats, st, ns, nf, bo):
                             fn = int(line)
                     except Exception:
                         fn = 0
-            
+
             prevline = line
 
     mesh = bpy.data.meshes.new("mesh")
@@ -943,6 +960,40 @@ def oftomesh(ofb, vl, fomats, st, ns, nf, bo):
             face.material_index = len(ns)
 
 
+def heal_geo(occ, geo, tol):
+    fns = [face.name for face in geo.shape.faces]
+    fms = [face.maxh for face in geo.shape.faces]
+    fcs = [face.center for face in geo.shape.faces]
+    geo.Heal(tolerance=tol)
+
+    if len(geo.shape.SubShapes(occ.SOLID)):
+        for geo_solid in geo.shape.SubShapes(occ.SOLID):
+            if not all([face.name for face in geo_solid.faces]):
+                for fi, face in enumerate(geo_solid.faces):
+                    if face.name == None:
+                        for fci, fc in enumerate(fcs):
+                            if (Vector(face.center) - Vector(fc)).length < 0.001:
+                                face.name = fns[fci]
+                                face.maxh = fms[fci]
+                                break
+
+                        if face.name is None:
+                            face.name = fns[fi]
+                            face.maxh = fms[fi]
+
+
+def simplify_shape(occ, shape):
+    set_mats = set(face.name for face in shape.faces)
+    mg_shapes = []
+
+    for mat in set_mats:
+        faces = [f for f in shape.faces if f.name == mat]
+        mat_geo = occ.OCCGeometry(occ.Sew(faces))
+        mg_shapes.append(mat_geo.shape.UnifySameDomain(unifyFaces=True))
+
+    return occ.OCCGeometry(mg_shapes)
+
+
 def ret_of_docker():
     try:
         if sys.platform in ('darwin', 'win32'):
@@ -965,15 +1016,55 @@ def ret_of_docker():
                     # Below is required to register the lines
                     print(lds[0], lds[1])
 
-                    if lds[0] == 'dicehub/openfoam' and lds[1] in ('12', '13', 'dev'):
-                        # ofoam = 1
+                    if lds[0] == 'dicehub/openfoam' and lds[1] in valid_dockers:
                         return f"{lds[0]}:{lds[1]}"
+                    else:
+                        lds0 = lds[0].split(':')
+
+                        if lds0[0] == 'dicehub/openfoam' and lds0[1] in valid_dockers:
+                            return f"{lds0[0]}:{lds0[1]}"
             else:
                 return ''
         else:
             return ''
     except Exception:
         return ''
+
+
+def heal_geo(occ, geo, tol):
+    fns = [face.name for face in geo.shape.faces]
+    fms = [face.maxh for face in geo.shape.faces]
+    fcs = [face.center for face in geo.shape.faces]
+    geo.Heal(tolerance=tol)
+
+    if len(geo.shape.SubShapes(occ.SOLID)):
+        for geo_solid in geo.shape.SubShapes(occ.SOLID):
+            if not all([face.name for face in geo_solid.faces]):
+                for fi, face in enumerate(geo_solid.faces):
+                    if face.name is None:
+                        for fci, fc in enumerate(fcs):
+                            if (Vector(face.center) - Vector(fc)).length < 0.001:
+                                face.name = fns[fci]
+                                face.maxh = fms[fci]
+                                break
+
+                        if face.name is None:
+                            face.name = fns[fi]
+                            face.maxh = fms[fi]
+
+
+def simplify_shape(occ, shape):
+    set_mats = set(face.name for face in shape.faces)
+    mg_shapes = []
+
+    for mat in set_mats:
+        faces = [f for f in shape.faces if f.name == mat]
+        mat_geo = occ.OCCGeometry(occ.Sew(faces))
+        mg_shapes.append(mat_geo.shape.UnifySameDomain(unifyFaces=True))
+
+    return occ.OCCGeometry(mg_shapes)
+
+
 # def ret_fvbnutilda_menu(mat, context):
 #     if context.scene.vi_params.get('flparams') and context.scene.vi_params['flparams'].get('scenario') and context.scene.vi_params['flparams']['scenario'] != '4':
 #         # print(mat.name, flovi_nut_dict[context.scene.vi_params['flparams']['scenario']][mat.flovi_bmb_type].keys())
