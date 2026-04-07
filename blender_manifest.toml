@@ -10,123 +10,124 @@ type = "add-on"
 website = "https://f7c1b63c-3412-46d1-b700-c01caa05974e.ul.bw-cloud-instance.org/lectures/anleitung_visuite/"
 tags = ["3D View", "Node", "Physics"]
 
-blender_version_min = "5.0.1"
+blender_version_min = "5.1.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 # copyright = ["2026 Pius Jung"]
 
 wheels = [
   # -- contourpy
-  "./wheels/contourpy-1.3.3-cp311-cp311-macosx_10_9_x86_64.whl",
-  "./wheels/contourpy-1.3.3-cp311-cp311-macosx_11_0_arm64.whl",
-  "./wheels/contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  "./wheels/contourpy-1.3.3-cp311-cp311-win_amd64.whl",
+  "./wheels/contourpy-1.3.3-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/contourpy-1.3.3-cp313-cp313-macosx_11_0_arm64.whl",
+  "./wheels/contourpy-1.3.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./wheels/contourpy-1.3.3-cp313-cp313-win_amd64.whl",
   # -- cycler
   "./wheels/cycler-0.12.1-py3-none-any.whl",
   # -- cython
-  "./wheels/cython-3.2.4-cp311-cp311-macosx_11_0_arm64.whl",
-  "./pyroomacoustics_wheels/cython-3.2.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
-  "./wheels/cython-3.2.4-cp311-cp311-win_amd64.whl",
+  "./wheels/cython-3.2.4-cp313-cp313-macosx_11_0_arm64.whl",
+  "./pyroomacoustics_wheels/cython-3.2.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+  "./wheels/cython-3.2.4-cp313-cp313-win_amd64.whl",
   "./wheels/cython-3.2.4-cp39-abi3-macosx_10_9_x86_64.whl",
   # -- fonttools
-  "./wheels/fonttools-4.61.1-cp311-cp311-macosx_10_9_universal2.whl",
-  "./wheels/fonttools-4.61.1-cp311-cp311-macosx_10_9_x86_64.whl",
-  "./wheels/fonttools-4.61.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-  "./wheels/fonttools-4.61.1-cp311-cp311-win_amd64.whl",
+  "./wheels/fonttools-4.62.1-cp313-cp313-macosx_10_13_universal2.whl",
+  "./wheels/fonttools-4.62.1-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/fonttools-4.62.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+  "./wheels/fonttools-4.62.1-cp313-cp313-win_amd64.whl",
   # -- intel_cmplr_lib_ur
-  "./ngsolve_wheels/intel_cmplr_lib_ur-2024.2.1-py2.py3-none-manylinux1_x86_64.whl",
-  "./ngsolve_wheels/intel_cmplr_lib_ur-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl",
-  "./ngsolve_wheels/intel_cmplr_lib_ur-2025.3.2-py2.py3-none-win_amd64.whl",
+  "./ngsolve_wheels/intel_cmplr_lib_ur-2025.3.3-py2.py3-none-manylinux_2_28_x86_64.whl",
+  "./ngsolve_wheels/intel_cmplr_lib_ur-2025.3.3-py2.py3-none-win_amd64.whl",
   # -- intel_openmp
-  "./ngsolve_wheels/intel_openmp-2024.2.1-py2.py3-none-manylinux1_x86_64.whl",
-  "./ngsolve_wheels/intel_openmp-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl",
-  "./ngsolve_wheels/intel_openmp-2025.3.2-py2.py3-none-win_amd64.whl",
+  "./ngsolve_wheels/intel_openmp-2025.3.3-py2.py3-none-manylinux_2_28_x86_64.whl",
+  "./ngsolve_wheels/intel_openmp-2025.3.3-py2.py3-none-win_amd64.whl",
   # -- kiwisolver
-  "./wheels/kiwisolver-1.4.9-cp311-cp311-macosx_10_9_universal2.whl",
-  "./wheels/kiwisolver-1.4.9-cp311-cp311-macosx_10_9_x86_64.whl",
-  "./wheels/kiwisolver-1.4.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-  "./wheels/kiwisolver-1.4.9-cp311-cp311-win_amd64.whl",
+  "./wheels/kiwisolver-1.5.0-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/kiwisolver-1.5.0-cp313-cp313-macosx_11_0_arm64.whl",
+  "./wheels/kiwisolver-1.5.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+  "./wheels/kiwisolver-1.5.0-cp313-cp313-win_amd64.whl",
   # -- matplotlib
-  "./wheels/matplotlib-3.10.8-cp311-cp311-macosx_10_12_x86_64.whl",
-  "./wheels/matplotlib-3.10.8-cp311-cp311-macosx_11_0_arm64.whl",
-  "./wheels/matplotlib-3.10.8-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-  "./wheels/matplotlib-3.10.8-cp311-cp311-win_amd64.whl",
+  "./wheels/matplotlib-3.10.8-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/matplotlib-3.10.8-cp313-cp313-macosx_11_0_arm64.whl",
+  "./wheels/matplotlib-3.10.8-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+  "./wheels/matplotlib-3.10.8-cp313-cp313-win_amd64.whl",
   # -- mkl
-  "./ngsolve_wheels/mkl-2024.2.2-py2.py3-none-manylinux1_x86_64.whl",
   "./ngsolve_wheels/mkl-2025.3.1-py2.py3-none-manylinux_2_28_x86_64.whl",
   "./ngsolve_wheels/mkl-2025.3.1-py2.py3-none-win_amd64.whl",
   # -- mkl_service
-  "./ngsolve_wheels/mkl_service-2.4.1-0-cp311-cp311-manylinux2014_x86_64.whl",
-  "./ngsolve_wheels/mkl_service-2.6.1-0-cp311-cp311-manylinux_2_28_x86_64.whl",
+  "./ngsolve_wheels/mkl_service-2.6.1-0-cp313-cp313-manylinux_2_28_x86_64.whl",
   # -- netgen_mesher
-  "./ngsolve_wheels/netgen_mesher-6.2.2406-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-  "./ngsolve_wheels/netgen_mesher-6.2.2601-cp311-cp311-macosx_10_15_universal2.whl",
-  "./ngsolve_wheels/netgen_mesher-6.2.2601-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-  "./ngsolve_wheels/netgen_mesher-6.2.2601-cp311-cp311-win_amd64.whl",
+  "./ngsolve_wheels/netgen_mesher-6.2.2602.post1-cp313-cp313-macosx_10_15_universal2.whl",
+  "./ngsolve_wheels/netgen_mesher-6.2.2602.post1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+  "./ngsolve_wheels/netgen_mesher-6.2.2602.post1-cp313-cp313-win_amd64.whl",
   # -- netgen_occt
   "./ngsolve_wheels/netgen_occt-7.8.1-py3-none-macosx_10_15_x86_64.whl",
   "./ngsolve_wheels/netgen_occt-7.8.1-py3-none-macosx_11_0_arm64.whl",
   "./ngsolve_wheels/netgen_occt-7.8.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
   "./ngsolve_wheels/netgen_occt-7.8.1-py3-none-win_amd64.whl",
   # -- ngsolve
-  "./ngsolve_wheels/ngsolve-6.2.2406-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-  "./ngsolve_wheels/ngsolve-6.2.2601-cp311-cp311-macosx_10_15_universal2.whl",
-  "./ngsolve_wheels/ngsolve-6.2.2601-cp311-cp311-manylinux_2_28_x86_64.whl",
-  "./ngsolve_wheels/ngsolve-6.2.2601-cp311-cp311-win_amd64.whl",
+  "./ngsolve_wheels/ngsolve-6.2.2602.post2-cp313-cp313-macosx_10_15_universal2.whl",
+  "./ngsolve_wheels/ngsolve-6.2.2602.post2-cp313-cp313-manylinux_2_28_x86_64.whl",
+  "./ngsolve_wheels/ngsolve-6.2.2602.post2-cp313-cp313-win_amd64.whl",
   # -- numpy
-  "./wheels/numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+  "./wheels/numpy-2.4.4-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./ngsolve_wheels/numpy-2.4.4-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/numpy-2.4.4-cp313-cp313-macosx_11_0_arm64.whl",
+  "./ngsolve_wheels/numpy-2.4.4-cp313-cp313-macosx_11_0_arm64.whl",
+  "./wheels/numpy-2.4.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./ngsolve_wheels/numpy-2.4.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./pyroomacoustics_wheels/numpy-2.4.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./wheels/numpy-2.4.4-cp313-cp313-win_amd64.whl",
+  "./ngsolve_wheels/numpy-2.4.4-cp313-cp313-win_amd64.whl",
   # -- onemkl_license
   "./ngsolve_wheels/onemkl_license-2025.3.1-py2.py3-none-manylinux_2_28_x86_64.whl",
   "./ngsolve_wheels/onemkl_license-2025.3.1-py2.py3-none-win_amd64.whl",
   # -- packaging
   "./wheels/packaging-26.0-py3-none-any.whl",
   # -- pillow
-  "./wheels/pillow-12.1.0-cp311-cp311-macosx_10_10_x86_64.whl",
-  "./wheels/pillow-12.1.0-cp311-cp311-macosx_11_0_arm64.whl",
-  "./wheels/pillow-12.1.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  "./wheels/pillow-12.1.0-cp311-cp311-win_amd64.whl",
+  "./wheels/pillow-12.2.0-cp313-cp313-macosx_10_13_x86_64.whl",
+  "./wheels/pillow-12.2.0-cp313-cp313-macosx_11_0_arm64.whl",
+  "./wheels/pillow-12.2.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./wheels/pillow-12.2.0-cp313-cp313-win_amd64.whl",
   # -- psutil
   "./wheels/psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl",
   "./wheels/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl",
   "./wheels/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl",
   "./wheels/psutil-7.2.2-cp37-abi3-win_amd64.whl",
   # -- pybind11
-  "./wheels/pybind11-3.0.1-py3-none-any.whl",
-  "./pyroomacoustics_wheels/pybind11-3.0.1-py3-none-any.whl",
+  "./wheels/pybind11-3.0.3-py3-none-any.whl",
+  "./pyroomacoustics_wheels/pybind11-3.0.3-py3-none-any.whl",
   # -- pyparsing
   "./wheels/pyparsing-3.3.2-py3-none-any.whl",
   # -- pyroomacoustics
-  "./pyroomacoustics_wheels/pyroomacoustics-0.9.0-cp311-cp311-linux_x86_64.whl",
-  "./wheels/pyroomacoustics-0.9.0-cp311-cp311-macosx_10_9_universal2.whl",
-  "./wheels/pyroomacoustics-0.9.0-cp311-cp311-win_amd64.whl",
+  "./pyroomacoustics_wheels/pyroomacoustics-0.10.0-cp313-cp313-linux_x86_64.whl",
+  "./wheels/pyroomacoustics-0.10.0-cp313-cp313-macosx_10_13_universal2.whl",
+  "./wheels/pyroomacoustics-0.10.0-cp313-cp313-win_amd64.whl",
   # -- pyside6
-  "./wheels/pyside6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl",
-  "./wheels/pyside6-6.10.2-cp39-abi3-win_amd64.whl",
-  "./wheels/pyside6-6.9.3-cp39-abi3-manylinux_2_28_x86_64.whl",
+  "./wheels/pyside6-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/pyside6-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/pyside6-6.11.0-cp310-abi3-win_amd64.whl",
   # -- pyside6_addons
-  "./wheels/pyside6_addons-6.10.2-cp39-abi3-macosx_13_0_universal2.whl",
-  "./wheels/pyside6_addons-6.10.2-cp39-abi3-win_amd64.whl",
-  "./wheels/pyside6_addons-6.9.3-cp39-abi3-manylinux_2_28_x86_64.whl",
+  "./wheels/pyside6_addons-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/pyside6_addons-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/pyside6_addons-6.11.0-cp310-abi3-win_amd64.whl",
   # -- pyside6_essentials
-  "./wheels/pyside6_essentials-6.10.2-cp39-abi3-macosx_13_0_universal2.whl",
-  "./wheels/pyside6_essentials-6.10.2-cp39-abi3-win_amd64.whl",
-  "./wheels/pyside6_essentials-6.9.3-cp39-abi3-manylinux_2_28_x86_64.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-win_amd64.whl",
   # -- python_dateutil
   "./wheels/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
   # -- scipy
-  "./wheels/scipy-1.17.0-cp311-cp311-macosx_10_14_x86_64.whl",
-  "./wheels/scipy-1.17.0-cp311-cp311-macosx_14_0_arm64.whl",
-  "./wheels/scipy-1.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  "./pyroomacoustics_wheels/scipy-1.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-  "./wheels/scipy-1.17.0-cp311-cp311-win_amd64.whl",
+  "./wheels/scipy-1.17.1-cp313-cp313-macosx_10_14_x86_64.whl",
+  "./wheels/scipy-1.17.1-cp313-cp313-macosx_14_0_arm64.whl",
+  "./wheels/scipy-1.17.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./pyroomacoustics_wheels/scipy-1.17.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+  "./wheels/scipy-1.17.1-cp313-cp313-win_amd64.whl",
   # -- shiboken6
-  "./wheels/shiboken6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl",
-  "./wheels/shiboken6-6.10.2-cp39-abi3-win_amd64.whl",
-  "./wheels/shiboken6-6.9.3-cp39-abi3-manylinux_2_28_x86_64.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-win_amd64.whl",
   # -- six
   "./wheels/six-1.17.0-py2.py3-none-any.whl",
   # -- tbb
-  "./ngsolve_wheels/tbb-2021.13.1-py2.py3-none-manylinux1_x86_64.whl",
   "./ngsolve_wheels/tbb-2022.3.1-py2.py3-none-manylinux_2_28_x86_64.whl",
   "./ngsolve_wheels/tbb-2022.3.1-py3-none-win_amd64.whl",
   # -- tcmlib
@@ -148,16 +149,12 @@ network = "Fetch weather data and simulation results"
 
 [build]
 paths_exclude_pattern = [
-    "__pycache__/",
-    "/.git/",
-    "/.git*",
-    "/*.zip",
-    "/*.sh",
-    "/.vscode/",
-    "/assets/",
-    "/specials/",
-    "/wheel_it.py",
-    "/wheel_it.sh",
-    "/win_visuite_python_deps_installer.cmd",
-    "/build_scripts/",
+  "__pycache__/",
+  "/.git/",
+  "/.git*",
+  "/*.zip",
+  "/*.sh",
+  "/.vscode/",
+  "/assets/",
+  "/build_scripts/",
 ]

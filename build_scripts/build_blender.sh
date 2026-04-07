@@ -1,8 +1,0 @@
-#!/usr/bin/bash
-
-TODAY=$(date '+%y%m%d')
-/home/pius/simulationssoftware/blender-5.1.0-linux-x64/blender \
-  --command extension build \
-  --source-dir ../ \
-  --output-filepath ../assets/vi-suite_HBC_${TODAY}.zip \
-  --split-platforms \
