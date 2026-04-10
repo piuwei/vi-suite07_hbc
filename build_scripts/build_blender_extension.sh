@@ -4,11 +4,13 @@
 # pip install pyroomacoustics 
 # pip install ngsolve 
 
-TODAY=$(date '+%y%m%d')
+# TODAY=$(date '+%y%m%d')
+VERSION="v003"
+TARGET_PATH="../assets/blender_extensions/Blender-5.1.0/vi-suite_HBC_${VERSION}.zip"
 
-# change Path to desired blender executable
+# change to desired blender executable
 /home/pius/simulationssoftware/blender-5.1.0-linux-x64/blender \
   --command extension build \
   --source-dir ../ \
-  --output-filepath ../assets/vi-suite_HBC_${TODAY}.zip \
+  --output-filepath ${TARGET_PATH} \
   --split-platforms \
