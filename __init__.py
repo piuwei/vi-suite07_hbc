@@ -430,9 +430,19 @@ def ga_views(self, context):
     except Exception:
         return [('None', 'None', 'None')]
 
-
 class VIPreferences(AddonPreferences):
+        
+    mpl_styles = [
+        ('ggplot', 'ggplot', 'Use Matplotlib ggplot style'),
+        ('classic', 'classic', 'Use Matplotlib classic style'),
+        ('bmh', 'bmh', 'Use Matplotlib bmh style'),
+        ('seaborn-v0_8', 'seaborn-v0_8', 'Use Matplotlib seaborn style'),
+        ('dark_background', 'dark_background', 'Use dark background style'),
+        ('fast', 'fast', 'Use fast style'),
+    ]
+
     bl_idname = __name__
+    mpl_style: EnumProperty(name="", description="Matplotlib Style", items=mpl_styles, default="ggplot")
     radbin: StringProperty(name='', description='Radiance binary directory location', default='', subtype='DIR_PATH', update=abspath)
     radlib: StringProperty(name='', description='Radiance library directory location', default='', subtype='DIR_PATH', update=abspath)
     epbin: StringProperty(name='', description='EnergyPlus binary directory location', default='', subtype='DIR_PATH', update=abspath)
@@ -441,8 +451,7 @@ class VIPreferences(AddonPreferences):
     oflib: StringProperty(name='', description='OpenFOAM library directory location', default='', subtype='DIR_PATH', update=abspath)
     ofetc: StringProperty(name='', description='OpenFOAM etc directory location', default='', subtype='DIR_PATH', update=abspath)
     datab: StringProperty(name='', description='Database directory', default='', subtype='DIR_PATH', update=abspath)
-    ui_dict = {"Radiance bin directory:": 'radbin', "Radiance lib directory:": 'radlib', "EnergyPlus bin directory:": 'epbin',
-               "EnergyPlus weather directory:": 'epweath', 'Database directory': 'datab', 'OpenFOAM bin directory': 'ofbin'}
+    ui_dict = {"Matplotlib style": "mpl_style", "Radiance bin directory:": 'radbin', "Radiance lib directory:": 'radlib', "EnergyPlus bin directory:": 'epbin', "EnergyPlus weather directory:": 'epweath', 'Database directory': 'datab', 'OpenFOAM bin directory': 'ofbin'}
 
     def draw(self, context):
         layout = self.layout

@@ -16,8 +16,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# import bpy
+import bpy
 import sys
+import os
+
 # import datetime
 # from .envi_func import retmenu
 from numpy import amax, amin, linspace, sin, cos, sign, deg2rad, zeros, meshgrid, clip
@@ -107,8 +109,10 @@ def retframe(axis, dnode, frames):
 
 
 def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
+    addondir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+    vi_prefs = bpy.context.preferences.addons["bl_ext.user_default.{}".format(addondir)].preferences
     plt.close('all')
-    plt.style.use('bmh')
+    plt.style.use(vi_prefs.mpl_style)
     fig, ax = plt.subplots(dpi=dnode.dpi)
     variant = rvariant(dnode)
     rsx = dnode.inputs['X-axis']
@@ -146,8 +150,8 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
         else:
             si, ei = 0, -2
 
-    linestyles = ('solid', '--', ':')
-    colors = ('k', 'k', 'k')
+    # linestyles = ('solid', '--', ':')
+    # colors = ('k', 'k', 'k')
 
     if rsx.resultmenu == 'Time':
         if dnode.timemenu == '0':
@@ -182,7 +186,7 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
     y1data = timedata([dnode.inputs['Y-axis 1'].multfactor * float(y) for y in y1d], dnode.timemenu, dnode.inputs['Y-axis 1'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
     ylabel = label(dnode, dnode.inputs['Y-axis 1'].metricmenu, 'Y-axis 1', variant)
     drange = checkdata(chart_op, xdata, y1data)
-    line, = ax.plot(xdata[:drange], y1data[:drange], color=colors[0], ls=linestyles[0], linewidth=1, label=llabel(dnode, dnode.inputs['Y-axis 1'].metricmenu, 'Y-axis 1', variant))
+    line, = ax.plot(xdata[:drange], y1data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 1'].metricmenu, 'Y-axis 1', variant))
 
     if dnode.inputs['Y-axis 2'].links:
         rny2 = dnode.inputs['Y-axis 2'].links[0].from_node
@@ -198,7 +202,7 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
 
         y2data = timedata([dnode.inputs['Y-axis 2'].multfactor * float(y) for y in y2d], dnode.timemenu, dnode.inputs['Y-axis 2'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
         drange = checkdata(chart_op, xdata, y2data)
-        line, = ax.plot(xdata[:drange], y2data[:drange], color=colors[1], ls=linestyles[1], linewidth=1, label=llabel(dnode, dnode.inputs['Y-axis 2'].metricmenu, 'Y-axis 2', variant))
+        line, = ax.plot(xdata[:drange], y2data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 2'].metricmenu, 'Y-axis 2', variant))
 
     if dnode.inputs['Y-axis 3'].links:
         rny3 = dnode.inputs['Y-axis 3'].links[0].from_node
@@ -214,7 +218,7 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
 
         y3data = timedata([dnode.inputs['Y-axis 3'].multfactor * float(y) for y in y3d], dnode.timemenu, dnode.inputs['Y-axis 3'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
         drange = checkdata(chart_op, xdata, y3data)
-        line, = ax.plot(xdata[:drange], y3data[:drange], color=colors[2], ls=linestyles[2], linewidth=1, label=llabel(dnode, dnode.inputs['Y-axis 3'].metricmenu, 'Y-axis 3', variant))
+        line, = ax.plot(xdata[:drange], y3data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 3'].metricmenu, 'Y-axis 3', variant))
 
     try:
         plt.xlabel(xlabel)
