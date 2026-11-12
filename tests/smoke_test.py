@@ -97,8 +97,10 @@ def check_energyplus(modname, addon_dir):
         record("no quarantine flag on energyplus", "com.apple.quarantine" not in r.stdout, r.stdout.strip() or "none", fatal=False)
 
         r = run(["energyplus", "--version"])
-        record("energyplus --version WITHOUT ep_env (expected to fail before fix B)",
-               r.returncode == 0, f"rc={r.returncode} {(r.stderr or r.stdout).strip()[:500]}", fatal=False)
+        # The bundled binary must have @executable_path as rpath (fix B). If this fails
+        # after a merge from master, run build_scripts/fix_energyplus_rpath_macos.sh on a Mac.
+        record("energyplus --version WITHOUT ep_env (rpath fix B)",
+               r.returncode == 0, f"rc={r.returncode} {(r.stderr or r.stdout).strip()[:500]}")
 
     ok, msg = vi_func.ep_check()
     record("ep_check (energyplus --version with ep_env)", ok, msg)

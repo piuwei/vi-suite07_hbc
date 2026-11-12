@@ -19,19 +19,22 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
 
 ## Schritte
 
-### 1. EnergyPlus-Start im Code absichern (Lösung A) – *umgesetzt, auf macOS noch ungetestet*
+### 1. EnergyPlus-Start im Code absichern (Lösung A) – *erledigt, im Runner bestätigt*
 - Auf macOS beim Start von EnergyPlus `DYLD_LIBRARY_PATH=<EPFiles/darwin>` nur an den Kindprozess übergeben.
   Die Binary bleibt unverändert, die Signatur bleibt gültig.
 - Vor der Simulation `energyplus --version` testen und bei einem Fehler die Meldung im Blender-Report
   und im `vi-suite-log` anzeigen, statt still abzubrechen.
 
-### 2. Binary reparieren (Lösung B)
+### 2. Binary reparieren (Lösung B) – *erledigt, im Runner bestätigt*
 - Auf einem Mac oder im macOS-Runner ausführen:
   ```sh
   install_name_tool -add_rpath @executable_path EPFiles/darwin/energyplus-25.1.0
   codesign -f -s - EPFiles/darwin/energyplus-25.1.0
   ```
-- Die reparierte Binary committen. Danach funktioniert auch `energyplus --version` im Terminal.
+- Die reparierte Binary ist committet. Damit funktioniert auch `energyplus --version` im Terminal.
+- Nach einem Merge mit neuer EnergyPlus-Version auf einem Mac `bash build_scripts/fix_energyplus_rpath_macos.sh`
+  ausführen. Der Smoke-Test schlägt fehl, solange die Reparatur fehlt.
+- Lösung A bleibt als Absicherung und für die Fehlermeldung vor der Simulation drin.
 - Den Upstream-Autor auf den absoluten rpath hinweisen.
 
 ### 3. Manifest aufräumen (`blender_manifest.toml`)
@@ -42,7 +45,7 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
   mit Blenders numpy-Version kompatibel sind.
 - `get_wheels.py` und `requirements.txt` entsprechend anpassen.
 
-### 4. macOS-Runner (GitHub Actions) – *angelegt, erster Lauf steht aus*
+### 4. macOS-Runner (GitHub Actions) – *läuft (12.11.2026: alle Tests grün)*
 Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
 1. Blender 5.1 (arm64) herunterladen und mounten.
 2. Mit `build_scripts/ci_prepare_platform.py --platform macos-arm64` das Manifest auf macOS arm64
@@ -56,8 +59,7 @@ Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
    Node-Operatoren, danach EnergyPlus mit derselben Kommandozeile wie `node.ensim`.
    Prüfung: `.err`/`.eso` geschrieben, 0 Severe Errors.
    Die Wetterdatei im .blend (Laupheim TMYx) liegt nicht im Repo, deshalb wird ersatzweise Birmingham genutzt.
-7. Lösung B prüfen: rpath ergänzen, neu signieren, `energyplus --version` ohne Umgebung.
-8. Berichte und Logs als Artefakt hochladen, eine Übersicht erscheint in der Job-Zusammenfassung.
+7. Berichte und Logs als Artefakt hochladen, eine Übersicht erscheint in der Job-Zusammenfassung.
    Das Zip wird nur bei manuellem Start mit `upload_zip` hochgeladen.
 
 Lokal unter Linux mit Blender 5.1.2 getestet: Build, Installation, Smoke-Test und EnVi-Test laufen durch.

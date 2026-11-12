@@ -3,8 +3,8 @@ name: macOS test
 # Builds the VI-Suite HBC extension for macOS arm64 (Apple Silicon), installs it
 # into Blender and runs:
 #   - tests/smoke_test.py      add-on enable, imports, EnergyPlus/Radiance start
+#                              (incl. EnergyPlus without DYLD_LIBRARY_PATH, i.e. rpath fix B)
 #   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
-#   - EnergyPlus rpath repair check (fix B in docs/macos_plan.md)
 
 on:
   push:
@@ -111,20 +111,6 @@ jobs:
           mkdir -p "$REPORTS/envi-output"
           cp "$work"/simple_cube/in*.idf "$work"/simple_cube/*out.err "$REPORTS/envi-output/" 2>/dev/null
           exit $rc
-
-      - name: Check fix B (add @executable_path rpath to energyplus)
-        if: success() || failure()
-        continue-on-error: true
-        run: |
-          fixdir="$RUNNER_TEMP/epfix"
-          rm -rf "$fixdir"; cp -R EPFiles/darwin "$fixdir"
-          cd "$fixdir"
-          echo "--- rpaths before"; otool -l energyplus-25.1.0 | grep -A2 LC_RPATH
-          echo "--- before fix (no DYLD_LIBRARY_PATH)"; ./energyplus --version || echo "rc=$?"
-          install_name_tool -add_rpath @executable_path energyplus-25.1.0
-          codesign --force --sign - energyplus-25.1.0
-          echo "--- after fix"; ./energyplus --version
-          mkdir -p "$REPORTS/fix-b"; cp energyplus-25.1.0 "$REPORTS/fix-b/"
 
       - name: Summary
         if: always()
