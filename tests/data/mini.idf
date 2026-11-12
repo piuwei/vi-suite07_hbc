@@ -1,0 +1,17 @@
+! Minimal EnergyPlus 25.1 model (one 5x5x3 m zone, one week) for the CI smoke test.
+Version, 25.1;
+SimulationControl, No, No, No, No, Yes, No, 1;
+Building, Mini, 0, Suburbs, 0.04, 0.4, FullExterior, 25, 6;
+GlobalGeometryRules, UpperLeftCorner, Counterclockwise, Relative;
+Timestep, 4;
+RunPeriod, Jan, 1, 1, , 1, 7, , , Yes, Yes, No, Yes, Yes;
+Zone, Z1;
+Material, Mat, Rough, 0.2, 1.0, 1000, 1000;
+Construction, Con, Mat;
+BuildingSurface:Detailed, Floor, Floor, Con, Z1, , Ground, , NoSun, NoWind, , 4, 0,0,0, 0,5,0, 5,5,0, 5,0,0;
+BuildingSurface:Detailed, Roof, Roof, Con, Z1, , Outdoors, , SunExposed, WindExposed, , 4, 0,5,3, 0,0,3, 5,0,3, 5,5,3;
+BuildingSurface:Detailed, S, Wall, Con, Z1, , Outdoors, , SunExposed, WindExposed, , 4, 0,0,3, 0,0,0, 5,0,0, 5,0,3;
+BuildingSurface:Detailed, E, Wall, Con, Z1, , Outdoors, , SunExposed, WindExposed, , 4, 5,0,3, 5,0,0, 5,5,0, 5,5,3;
+BuildingSurface:Detailed, N, Wall, Con, Z1, , Outdoors, , SunExposed, WindExposed, , 4, 5,5,3, 5,5,0, 0,5,0, 0,5,3;
+BuildingSurface:Detailed, W, Wall, Con, Z1, , Outdoors, , SunExposed, WindExposed, , 4, 0,5,3, 0,5,0, 0,0,0, 0,0,3;
+Output:Variable, *, Zone Mean Air Temperature, Hourly;
