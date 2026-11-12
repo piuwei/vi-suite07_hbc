@@ -37,13 +37,16 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
 - Lösung A bleibt als Absicherung und für die Fehlermeldung vor der Simulation drin.
 - Den Upstream-Autor auf den absoluten rpath hinweisen.
 
-### 3. Manifest aufräumen (`blender_manifest.toml`)
-- `macos-x64` aus `platforms` entfernen, ebenso alle `macosx_*_x86_64`-Wheels.
-- Doppelte Einträge entfernen (numpy und pybind11 aus mehreren Wheel-Ordnern).
-- `cython` und `pybind11` entfernen, sie sind nur Build-Abhängigkeiten.
-- `numpy` entfernen, Blender bringt es mit. Vorher prüfen, ob die ngsolve- und pyroomacoustics-Wheels
-  mit Blenders numpy-Version kompatibel sind.
-- `get_wheels.py` und `requirements.txt` entsprechend anpassen.
+### 3. Manifest aufräumen (`blender_manifest.toml`) – *erledigt*
+- `macos-x64` aus `platforms` entfernt, ebenso alle reinen `macosx_*_x86_64`-Wheels. Die `universal2`-Wheels bleiben.
+- Doppelte Einträge entfernt (numpy und scipy aus mehreren Wheel-Ordnern).
+- `cython` und `pybind11` entfernt. pyroomacoustics führt sie zwar als Abhängigkeit auf, importiert sie aber nicht.
+  Blender prüft beim Installieren keine Abhängigkeiten.
+- `numpy` entfernt, Blender 5.1 bringt numpy 2.3.4 mit. Das passt zu scipy (≥ 1.26.4), matplotlib,
+  contourpy und netgen.
+- Ergebnis: 65 statt 89 Wheels, die Liste für macOS arm64 hat 21 statt 23.
+- `get_wheels.py` lädt keine macOS-x86-Wheels mehr und lässt numpy, Cython, pybind11 und Dubletten
+  in der ausgegebenen Liste weg.
 
 ### 4. macOS-Runner (GitHub Actions) – *läuft (12.11.2026: alle Tests grün)*
 Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
