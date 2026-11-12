@@ -28,6 +28,7 @@ import addon_utils
 import bpy
 
 EXT_ID = "vi_suite_HBC"
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 results = []
 
 
@@ -70,7 +71,7 @@ def set_weather(modname, loc, weather):
     if os.path.isfile(loc.weather):
         return record("weather file", True, loc.weather)
 
-    record("weather file from .blend not found", True, loc.weather, fatal=False)
+    record("weather file from .blend not found, using copy", True, f"{loc.weather} -> {weather}", fatal=False)
     # The weather enum is stored as an index, so give the add-on a folder that
     # contains only the chosen file.
     wdir = tempfile.mkdtemp(prefix="vi_weather_")
@@ -132,7 +133,11 @@ def main():
         return
 
     addon_dir = os.path.dirname(sys.modules[modname].__file__)
-    weather = args.weather or os.path.join(addon_dir, "EPFiles", "Weather", "GBR_Birmingham.035340_IWEC.epw")
+    # Weather file: --weather, else the file with the same name as in the .blend
+    # from tests/data, else a weather file bundled with the add-on.
+    same_name = os.path.join(DATA, os.path.basename(loc.weather.replace("\\", "/")))
+    weather = args.weather or (same_name if os.path.isfile(same_name) else
+                               os.path.join(addon_dir, "EPFiles", "Weather", "GBR_Birmingham.035340_IWEC.epw"))
     if not set_weather(modname, loc, os.path.abspath(weather)):
         return
 

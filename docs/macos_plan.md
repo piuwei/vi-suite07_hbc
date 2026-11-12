@@ -61,7 +61,7 @@ Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
 6. `tests/envi_blend_test.py` mit `tests/data/simple_cube.blend`: EnVi-Geometrie- und IDF-Export über die
    Node-Operatoren, danach EnergyPlus mit derselben Kommandozeile wie `node.ensim`.
    Prüfung: `.err`/`.eso` geschrieben, 0 Severe Errors.
-   Die Wetterdatei im .blend (Laupheim TMYx) liegt nicht im Repo, deshalb wird ersatzweise Birmingham genutzt.
+   Die Wetterdatei aus dem .blend (Laupheim TMYx, climate.onebuilding.org) liegt als Kopie in `tests/data/`.
 7. Berichte und Logs als Artefakt hochladen, eine Übersicht erscheint in der Job-Zusammenfassung.
    Das Zip wird nur bei manuellem Start mit `upload_zip` hochgeladen.
 
