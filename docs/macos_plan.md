@@ -1,6 +1,6 @@
 # Plan: VI-Suite HBC auf macOS lauffähig machen
 
-Stand: 12.11.2026 · Branch: `hbc_downstream`
+Stand: 12.11.2026 (Schritte 1–7 erledigt, offen: manueller Test auf einem Mac, PR nach `hbc_downstream`) · Branch: `hbc_downstream`
 
 Zielplattform: **macOS arm64 (Apple Silicon)**. Blender ab 5.0 läuft nur noch auf Apple Silicon.
 
@@ -48,7 +48,7 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
 - `get_wheels.py` lädt keine macOS-x86-Wheels mehr und lässt numpy, Cython, pybind11 und Dubletten
   in der ausgegebenen Liste weg.
 
-### 4. macOS-Runner (GitHub Actions) – *läuft (12.11.2026: alle Tests grün)*
+### 4. macOS-Runner (GitHub Actions) – *erledigt (12.11.2026: alle Tests grün, inkl. Lösung B, Manifest, Quarantäne, Laupheim)*
 Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
 1. Blender 5.1 (arm64) herunterladen und mounten.
 2. Mit `build_scripts/ci_prepare_platform.py --platform macos-arm64` das Manifest auf macOS arm64
@@ -65,8 +65,8 @@ Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
 7. Berichte und Logs als Artefakt hochladen, eine Übersicht erscheint in der Job-Zusammenfassung.
    Das Zip wird nur bei manuellem Start mit `upload_zip` hochgeladen.
 
-Lokal unter Linux mit Blender 5.1.2 getestet: Build, Installation, Smoke-Test und EnVi-Test laufen durch.
-Ausnahme: pyroomacoustics, weil das Linux-Wheel lokal gebaut wird.
+Zusätzlich lokal unter Linux mit Blender 5.1.2 getestet: Build, Installation, Smoke-Test und EnVi-Test laufen
+durch. Ausnahme: pyroomacoustics, weil das Linux-Wheel lokal gebaut wird.
 
 Voraussetzungen: Schreibzugriff der Claude GitHub App mit der Berechtigung `workflows`.
 Für private Repos zählen macOS-Minuten zehnfach.
