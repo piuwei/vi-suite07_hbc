@@ -88,6 +88,14 @@ jobs:
           "$BLENDER" --command extension install-file --repo user_default --enable \
             dist/vi_suite_HBC-macos-arm64.zip 2>&1 | tee "$REPORTS/install.log"
 
+      - name: Mark installed programs as quarantined (simulate browser download)
+        run: |
+          ext="$HOME/Library/Application Support/Blender/${BLENDER_VERSION%.*}/extensions/user_default/vi_suite_HBC"
+          for d in EPFiles/darwin RadFiles/darwin OFFiles/darwin; do
+            [ -d "$ext/$d" ] && find "$ext/$d" -type f -exec xattr -w com.apple.quarantine "0081;00000000;Safari;" {} +
+          done
+          xattr -l "$ext/EPFiles/darwin/energyplus-25.1.0"
+
       - name: Smoke test
         run: |
           "$BLENDER" -b --python-exit-code 1 --python tests/smoke_test.py -- \

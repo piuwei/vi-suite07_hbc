@@ -71,21 +71,22 @@ Ausnahme: pyroomacoustics, weil das Linux-Wheel lokal gebaut wird.
 Voraussetzungen: Schreibzugriff der Claude GitHub App mit der Berechtigung `workflows`.
 Für private Repos zählen macOS-Minuten zehnfach.
 
-### 5. macOS-Voraussetzungen dokumentieren
-- scipy-Wheel braucht macOS ≥ 14, PySide6 ≥ 13, also gilt: **mindestens macOS 14**.
-  Das in `build_guide.md` und im Manifest bzw. in der Anleitung vermerken.
-- Prüfen, ob Blender die `universal2`-Wheels installiert (passiert im Runner, Schritt 4).
-- Die Qt-Fenster (Fortschrittsbalken) auf macOS manuell prüfen. Das geht nicht headless.
+### 5. macOS-Voraussetzungen dokumentieren – *erledigt (README, build_guide.md)*
+- Das scipy-Wheel braucht macOS ≥ 14, PySide6 ≥ 13, also gilt: **mindestens macOS 14 auf Apple Silicon**.
+- Die `universal2`-Wheels installiert Blender korrekt (im Runner geprüft).
+- **Offen:** Die Qt-Fenster (Fortschrittsbalken) und den modalen Simulations-Knopf auf einem echten Mac
+  prüfen. Das geht im Runner nicht.
 
-### 6. Quarantäne und Ausführungsrechte
-- Nach einem Download per Browser setzt macOS `com.apple.quarantine`. Die Binaries in
-  `EPFiles/darwin`, `RadFiles/darwin` und `OFFiles/darwin` können dann blockiert werden.
-- Beim Laden des Add-ons auf macOS das Attribut entfernen (`xattr -dr com.apple.quarantine`) oder
-  den Befehl in der Anleitung dokumentieren.
+### 6. Quarantäne – *erledigt*
+- Beim Laden entfernt das Add-on auf macOS `com.apple.quarantine` aus `EPFiles/darwin`, `RadFiles/darwin`
+  und `OFFiles/darwin`, aber nur dann, wenn das Attribut gesetzt ist.
+- Der Runner setzt das Attribut nach der Installation absichtlich, und der Smoke-Test prüft, dass es
+  bei `energyplus` und `rtrace` wieder entfernt ist.
+- Der Befehl für die Entfernung von Hand steht in `build_guide.md`.
 
-### 7. Build-Skript portabel machen
-- In `build_blender_extension.sh` den Blender-Pfad über eine Variable `BLENDER` setzen
-  statt fest `/home/pius/...` einzutragen, damit dasselbe Skript im Runner läuft.
+### 7. Build-Skript portabel machen – *erledigt*
+- `build_blender_extension.sh` nimmt Blender aus `$BLENDER` (oder `blender` im PATH), funktioniert aus
+  jedem Verzeichnis und liest die Versionsnummer aus dem Manifest.
 
 ## Gefundene Fehler
 - `__init__.py`: Der netgen-Workaround suchte die Wheels in `/ngsolve_wheels` (Wurzelverzeichnis)

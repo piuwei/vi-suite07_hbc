@@ -93,8 +93,13 @@ def check_energyplus(modname, addon_dir):
         rpaths = [l.split()[1] for l in r.stdout.splitlines() if l.strip().startswith("path ")]
         record("energyplus LC_RPATH", True, rpaths, fatal=False)
 
-        r = run(["xattr", "-l", os.path.realpath(ep_exe)])
-        record("no quarantine flag on energyplus", "com.apple.quarantine" not in r.stdout, r.stdout.strip() or "none", fatal=False)
+        # CI marks the installed program folders as quarantined (like a browser
+        # download unpacked with Finder); the add-on must remove the flag on load.
+        for exe in (os.path.realpath(ep_exe), shutil.which("rtrace") or ""):
+            if exe:
+                r = run(["xattr", "-l", exe])
+                record(f"no quarantine flag on {os.path.basename(exe)}", "com.apple.quarantine" not in r.stdout,
+                       r.stdout.strip() or "none")
 
         r = run(["energyplus", "--version"])
         # The bundled binary must have @executable_path as rpath (fix B). If this fails
