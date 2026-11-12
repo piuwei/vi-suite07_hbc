@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Prepare a macOS arm64-only extension build (used by the macOS CI runner).
+"""Prepare a single-platform extension build (used by the CI runners).
 
 - Reads the wheel list from blender_manifest.toml
-- Keeps only the wheels that can be installed on macOS arm64 / Python 3.13
+- Keeps only the wheels that can be installed on the chosen platform / Python 3.13
 - Downloads exactly these files from PyPI into the folders named in the manifest
-- Rewrites the manifest to platforms = ["macos-arm64"] and the filtered wheel list
+- Rewrites the manifest to platforms = ["<platform>"] and the filtered wheel list
 
 Because the files are fetched by their exact names, the run also checks that every
 wheel listed in the manifest really exists on PyPI.
 
 Usage (from the repository root):
-    python3 build_scripts/ci_prepare_macos.py [--manifest blender_manifest.toml] [--no-download]
+    python3 build_scripts/ci_prepare_platform.py --platform macos-arm64
+    python3 build_scripts/ci_prepare_platform.py --platform linux-x64 --skip-missing
 """
 
 import argparse
@@ -21,7 +22,7 @@ import tomllib
 import urllib.request
 from pathlib import Path
 
-PY_TAGS_OK = ("cp313", "abi3", "py3", "py2.py3")
+PLATFORMS = ("macos-arm64", "linux-x64")
 
 
 def wheel_tags(filename):
@@ -32,7 +33,7 @@ def wheel_tags(filename):
     return name, version, py, abi, plat.split(".")
 
 
-def is_macos_arm64(filename):
+def matches_platform(filename, platform):
     _name, _version, py, abi, plats = wheel_tags(filename)
 
     if not any(p in py.split(".") for p in ("cp313", "py3", "py2")) and abi != "abi3":
@@ -41,7 +42,9 @@ def is_macos_arm64(filename):
     for p in plats:
         if p == "any":
             return True
-        if p.startswith("macosx_") and (p.endswith("_arm64") or p.endswith("_universal2")):
+        if platform == "macos-arm64" and p.startswith("macosx_") and p.endswith(("_arm64", "_universal2")):
+            return True
+        if platform == "linux-x64" and p.startswith(("manylinux", "linux_")) and p.endswith("_x86_64"):
             return True
 
     return False
@@ -61,7 +64,10 @@ def pypi_url(filename):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--platform", choices=PLATFORMS, default="macos-arm64")
     ap.add_argument("--manifest", default="blender_manifest.toml")
+    ap.add_argument("--skip-missing", action="store_true",
+                    help="drop wheels that are not on PyPI (e.g. locally built ones) instead of failing")
     ap.add_argument("--no-download", action="store_true", help="only filter and rewrite the manifest")
     args = ap.parse_args()
 
@@ -74,7 +80,7 @@ def main():
 
     for w in wheels:
         fn = Path(w).name
-        if not is_macos_arm64(fn):
+        if not matches_platform(fn, args.platform):
             continue
         if fn in seen_files:
             dropped_dupes.append(w)
@@ -85,16 +91,16 @@ def main():
     names_all = {wheel_tags(Path(w).name)[0].lower() for w in wheels}
     names_mac = {wheel_tags(Path(w).name)[0].lower() for w in keep}
 
-    print(f"Manifest lists {len(wheels)} wheels, {len(keep)} for macOS arm64")
+    print(f"Manifest lists {len(wheels)} wheels, {len(keep)} for {args.platform}")
     if dropped_dupes:
         print("Duplicate wheel files (listed in more than one folder), using first entry only:")
         for d in dropped_dupes:
             print(f"   {d}")
     if names_all - names_mac:
-        print("Packages without a macOS arm64 wheel (OK if Linux/Windows-only, e.g. mkl):")
+        print(f"Packages without a {args.platform} wheel (check whether they are needed there):")
         print("   " + ", ".join(sorted(names_all - names_mac)))
 
-    errors = []
+    errors, missing = [], []
     if not args.no_download:
         for w in keep:
             dest = root / w
@@ -106,20 +112,22 @@ def main():
                 urllib.request.urlretrieve(pypi_url(dest.name), dest)
                 print(f"   download {w}")
             except Exception as e:
-                errors.append(f"{w}: {e}")
+                (missing if args.skip_missing else errors).append(w)
                 print(f"   MISSING  {w}: {e}")
+
+    keep = [w for w in keep if w not in missing]
 
     wheel_block = "wheels = [\n" + "".join(f'  "{w}",\n' for w in keep) + "]"
     text, n = re.subn(r"^wheels\s*=\s*\[.*?^\]", wheel_block, text, count=1, flags=re.S | re.M)
     if n != 1:
         sys.exit("Could not find the wheels = [...] block in the manifest")
-    text, n = re.subn(r"^platforms\s*=\s*\[[^\]]*\]", 'platforms = ["macos-arm64"]', text, count=1, flags=re.M)
+    text, n = re.subn(r"^platforms\s*=\s*\[[^\]]*\]", f'platforms = ["{args.platform}"]', text, count=1, flags=re.M)
     if n != 1:
         sys.exit("Could not find platforms = [...] in the manifest")
 
     tomllib.loads(text)
     manifest.write_text(text)
-    print(f"Rewrote {manifest} for macos-arm64")
+    print(f"Rewrote {manifest} for {args.platform}")
 
     if errors:
         sys.exit(f"{len(errors)} wheel(s) listed in the manifest could not be downloaded")

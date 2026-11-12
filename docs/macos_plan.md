@@ -19,7 +19,7 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
 
 ## Schritte
 
-### 1. EnergyPlus-Start im Code absichern (Lösung A) – *in Arbeit*
+### 1. EnergyPlus-Start im Code absichern (Lösung A) – *umgesetzt, auf macOS noch ungetestet*
 - Auf macOS beim Start von EnergyPlus `DYLD_LIBRARY_PATH=<EPFiles/darwin>` nur an den Kindprozess übergeben.
   Die Binary bleibt unverändert, die Signatur bleibt gültig.
 - Vor der Simulation `energyplus --version` testen und bei einem Fehler die Meldung im Blender-Report
@@ -42,18 +42,26 @@ Dateinamen und Symlinks sind korrekt. `ExpandObjects` ist nicht betroffen, es h�
   mit Blenders numpy-Version kompatibel sind.
 - `get_wheels.py` und `requirements.txt` entsprechend anpassen.
 
-### 4. macOS-Runner (GitHub Actions)
+### 4. macOS-Runner (GitHub Actions) – *angelegt, erster Lauf steht aus*
 Workflow `.github/workflows/macos.yml` auf `macos-latest` (arm64):
 1. Blender 5.1 (arm64) herunterladen und mounten.
-2. Wheels mit `get_wheels.py` (ohne Conda) bzw. `pip download` holen.
+2. Mit `build_scripts/ci_prepare_platform.py --platform macos-arm64` das Manifest auf macOS arm64
+   filtern und genau die eingetragenen Wheels von PyPI laden. Dabei wird geprüft, ob alle Einträge existieren.
 3. Mit `blender --command extension build --split-platforms` bauen.
 4. Mit `blender --command extension install-file` installieren.
-5. Smoke-Test mit `blender -b --python tests/smoke_test.py`:
-   - Add-on aktivieren.
-   - Importe testen: matplotlib, scipy, PySide6/shiboken6, ngsolve/netgen, pyroomacoustics.
-   - `energyplus --version` mit der Umgebung aus Schritt 1, ExpandObjects, Radiance (`rtrace -version`) testen.
-   - Optional eine kleine EnVi-Simulation mit Beispiel-IDF und EPW.
-6. Das gebaute Zip und die Logs als Artefakt hochladen.
+5. `tests/smoke_test.py`: Add-on aktivieren, Importe testen (matplotlib, scipy, PySide6, netgen/ngsolve,
+   pyroomacoustics …), `energyplus --version` mit und ohne Lösung A, Mini-Simulation (`tests/data/mini.idf`),
+   ExpandObjects und `rtrace -version`.
+6. `tests/envi_blend_test.py` mit `tests/data/simple_cube.blend`: EnVi-Geometrie- und IDF-Export über die
+   Node-Operatoren, danach EnergyPlus mit derselben Kommandozeile wie `node.ensim`.
+   Prüfung: `.err`/`.eso` geschrieben, 0 Severe Errors.
+   Die Wetterdatei im .blend (Laupheim TMYx) liegt nicht im Repo, deshalb wird ersatzweise Birmingham genutzt.
+7. Lösung B prüfen: rpath ergänzen, neu signieren, `energyplus --version` ohne Umgebung.
+8. Berichte und Logs als Artefakt hochladen, eine Übersicht erscheint in der Job-Zusammenfassung.
+   Das Zip wird nur bei manuellem Start mit `upload_zip` hochgeladen.
+
+Lokal unter Linux mit Blender 5.1.2 getestet: Build, Installation, Smoke-Test und EnVi-Test laufen durch.
+Ausnahme: pyroomacoustics, weil das Linux-Wheel lokal gebaut wird.
 
 Voraussetzungen: Schreibzugriff der Claude GitHub App mit der Berechtigung `workflows`.
 Für private Repos zählen macOS-Minuten zehnfach.
@@ -73,6 +81,13 @@ Für private Repos zählen macOS-Minuten zehnfach.
 ### 7. Build-Skript portabel machen
 - In `build_blender_extension.sh` den Blender-Pfad über eine Variable `BLENDER` setzen
   statt fest `/home/pius/...` einzutragen, damit dasselbe Skript im Runner läuft.
+
+## Gefundene Fehler
+- `__init__.py`: Der netgen-Workaround suchte die Wheels in `/ngsolve_wheels` (Wurzelverzeichnis)
+  statt im Extension-Ordner. Ist korrigiert. Ohne die Korrektur ist `netgen`/`ngsolve` nicht importierbar,
+  weil das Wheel seine Pakete unter `.data/data/lib/...` ablegt und Blender diese nicht einrichtet.
+- Linux: Ohne `libEGL` scheitert der PySide6-Import beim Aktivieren, und Blender entfernt danach alle Wheels.
+  Auf Rechnern ohne Desktop (Server) muss `libegl1` installiert sein.
 
 ## Erledigt
 - Upstream-Merge: `hbc_downstream` enthält alle Commits von `master`.

@@ -83,7 +83,7 @@ else:
 
         try:
             ext_dir = Path(__file__).parent
-            netgen_wheel_dir = ext_dir / "/ngsolve_wheels"
+            netgen_wheel_dir = ext_dir / "ngsolve_wheels"
             netgen_wheels_paths = glob.glob(os.path.join(netgen_wheel_dir, "*.whl"))
 
             if not netgen_wheels_paths:

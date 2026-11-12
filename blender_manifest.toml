@@ -157,4 +157,8 @@ paths_exclude_pattern = [
   "/.vscode/",
   "/assets/",
   "/build_scripts/",
+  "/tests/",
+  "/docs/",
+  "/dist/",
+  "/.github/",
 ]
