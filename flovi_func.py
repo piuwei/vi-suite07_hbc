@@ -33,7 +33,8 @@ ofheader = r'''/*--------------------------------*- C++ -*----------------------
 |    \\/     M anipulation  | Created by:  FloVi (part of the VI-Suite)       |
 \*---------------------------------------------------------------------------*/''' + '\n\n'
 
-valid_dockers = ('13', '13-20260212')
+valid_dockers = ('13')
+
 
 def fileheader(o):
     return '''FoamFile
@@ -66,7 +67,7 @@ flovi_u_bounds = {'sf': {'0': ('zeroGradient', 'fixedValue', 'inletOutlet', 'out
                          '2': ('symmetry', ),
                          '3': ('empty',)}}
 
-flovi_nut_bounds = {'sf': {'0': ['calculated'], '1': ['nutkWallFunction'], '2': ('symmetry', ), '3': ('empty',)},
+flovi_nut_bounds = {'sf': {'0': ['calculated'], '1': ['nutkWallFunction', 'nutkAtmRoughWallFunction'], '2': ('symmetry', ), '3': ('empty',)},
                     'bf': {'0': ['calculated'], '1': ['nutkWallFunction'], '2': ('symmetry', ), '3': ('empty',)}}
 
 flovi_nutilda_bounds = {'sf': {'0': ('zeroGradient', 'fixedValue'), '1': ('zeroGradient', 'fixedValue'), '2': ('symmetry', ), '3': ('empty',)},
@@ -305,14 +306,35 @@ def fvmat(self, svp, mn, bound, frame):
             v_vec = self.flovi_bmbu_val
             val = 'uniform ({:.4f} {:.4f} {:.4f})'.format(*v_vec) if not self.flovi_u_field else '$internalField'
         else:
-            v_vec = Vector((self.flovi_u_speed * sin(pi*self.flovi_u_azi/180), self.flovi_u_speed * cos(pi*self.flovi_u_azi/180), 0))
+            v_vec = Vector((self.flovi_u_speed * sin(pi * self.flovi_u_azi / 180), self.flovi_u_speed * cos(pi * self.flovi_u_azi / 180), 0))
             val = 'uniform ({:.4f} {:.4f} {:.4f})'.format(*v_vec) if not self.flovi_u_field else '$internalField'
 
         if self.flovi_bmbu_subtype == 'atmBoundaryLayerInletVelocity':
-            fd_val = self.flovi_u_fdir if not self.flovi_u_field else svp['flparams'][str(frame)]['Udir']
-            s_val = self.flovi_u_ref if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+            zref = self.flovi_u_uref if svp['flparams']['terrain'] == '5' else 10
+
+            if svp['flparams']['terrain'] == '0':
+                uref = 2.343 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.231
+            elif svp['flparams']['terrain'] == '1':
+                uref = 3.746 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '2':
+                uref = 3.75 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '3':
+                uref = 5.0 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.0024
+            elif svp['flparams']['terrain'] == '4':
+                uref = 6.11 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.000144
+            else:
+                uref = self.flovi_u_uref
+                z0 = self.flovi_u_z0
+
+            fd_val = v_vec.normalized() if not self.flovi_u_field else svp['flparams'][str(frame)]['Udir']
+            s_val = uref
         else:
-            fd_val, s_val = (0, 0, 0), 0
+            fd_val, s_val, uref, z0, zref = (0, 0, 0), 0, 0, 0, 10
 
         Utdict = {'fixedValue': 'fixedValue;\n    value    {}'.format(val), 'slip': 'slip', 'noSlip': 'noSlip',
                   'uniformFixedValue': 'uniformFixedValue;\n    value    {0};\n    uniformValue    {0}'.format(val),
@@ -323,11 +345,11 @@ def fvmat(self, svp, mn, bound, frame):
                   'freestream': 'freestream;\n    freestreamValue    $internalField',
                   'freestreamVelocity': 'freestreamVelocity;\n    freestreamValue    $internalField',
                   'calculated': 'calculated;\n    value    $internalField',
-                  'atmBoundaryLayerInletVelocity': 'atmBoundaryLayerInletVelocity;\n    Uref {0:.3f};\n    Zref {1:.3f};\n    zDir ({2[0]:.3f} {2[1]:.3f} {2[2]:.3f});\n    flowDir    ({3[0]:.3f} {3[1]:.3f} {3[2]:.3f});\n    z0 uniform {4:.3f};\n    zGround uniform {5:.3f};\n    d uniform {6:.3f}\n    value {7}'.format(s_val,
+                  'atmBoundaryLayerInletVelocity': 'atmBoundaryLayerInletVelocity;\n    Uref {0:.3f};\n    Zref {1:.3f};\n    zDir ({2[0]:.3f} {2[1]:.3f} {2[2]:.3f});\n    flowDir    ({3[0]:.3f} {3[1]:.3f} {3[2]:.3f});\n    z0 uniform {4:.6f};\n    zGround uniform {5:.3f}'.format(s_val,
                                                                                                                                                                                                                                  self.flovi_u_zref,
                                                                                                                                                                                                                                  self.flovi_u_zdir,
                                                                                                                                                                                                                                  fd_val,
-                                                                                                                                                                                                                                 self.flovi_u_z0,
+                                                                                                                                                                                                                                 z0,
                                                                                                                                                                                                                                  self.flovi_u_zground,
                                                                                                                                                                                                                                  self.flovi_u_d,
                                                                                                                                                                                                                                  val),
@@ -337,7 +359,9 @@ def fvmat(self, svp, mn, bound, frame):
             entry = Utdict[self.flovi_bmbu_subtype]
 
     elif bound == 'nut':
+        nut_z0 = (0.231, 0.036, 0.036, 0.0024, 0.000144, self.flovi_nut_z0)[int(svp['flparams']['terrain'])]
         ntdict = {'nutkWallFunction': 'nutkWallFunction;\n    value    $internalField',
+                  'nutkAtmRoughWallFunction': f'nutkAtmRoughWallFunction;\n    z0    uniform {nut_z0:.6f};\n    value    $internalField',
                   'nutUSpaldingWallFunction': 'nutUSpaldingWallFunction;\n    value    $internalField',
                   'calculated': 'calculated;\n    value    $internalField',
                   'inletOutlet': 'inletOutlet;\n    inletValue    $internalField\n    value    $internalField',
@@ -348,6 +372,40 @@ def fvmat(self, svp, mn, bound, frame):
     elif bound == 'k':
         val = 'uniform {:.4f}'.format(self.flovi_k_val) if not self.flovi_k_field else '$internalField'
         ival = '{:.4f}'.format(self.flovi_k_intensity)
+        s_val = self.flovi_u_uref if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+        if self.flovi_u_type == '0':
+            v_vec = self.flovi_bmbu_val
+
+        else:
+            v_vec = Vector((self.flovi_u_speed * sin(pi * self.flovi_u_azi / 180), self.flovi_u_speed * cos(pi * self.flovi_u_azi / 180), 0))
+
+        if self.flovi_k_subtype == 'atmBoundaryLayerInletK':
+            zref = self.flovi_u_uref if svp['flparams']['terrain'] == '5' else 10
+
+            if svp['flparams']['terrain'] == '0':
+                uref = 2.343 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.231
+            elif svp['flparams']['terrain'] == '1':
+                uref = 3.746 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '2':
+                uref = 3.75 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '3':
+                uref = 5.0 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.0024
+            elif svp['flparams']['terrain'] == '4':
+                uref = 6.11 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.000144
+            else:
+                uref = self.flovi_u_uref
+                z0 = self.flovi_u_z0
+
+            s_val = uref
+        else:
+            s_val, uref, z0, zref = 0, (0, 0, 0), 0, 10
+
+        fd_val = '({:.4f} {:.4f} {:.4f})'.format(*v_vec.normalized()) if not self.flovi_u_field else '$internalField'
         ktdict = {'zeroGradient': 'zeroGradient',
                   'fixedValue': 'fixedValue;\n    value    {}'.format(val),
                   'kqRWallFunction': 'kqRWallFunction;\n    value    {}'.format(val),
@@ -355,7 +413,14 @@ def fvmat(self, svp, mn, bound, frame):
                   'calculated': 'calculated;\n    value    {}'.format(val),
                   'symmetry': 'symmetry',
                   'empty': 'empty',
-                  'turbulentIntensityKineticEnergyInlet': 'turbulentIntensityKineticEnergyInlet;\n    intensity       {};\n    value      {}'.format(ival, val)}
+                  'turbulentIntensityKineticEnergyInlet': 'turbulentIntensityKineticEnergyInlet;\n    intensity       {};\n    value      {}'.format(ival, val),
+                  'atmBoundaryLayerInletK': 'atmBoundaryLayerInletK;\n    Uref {0:.3f};\n    Zref {1:.3f};\n    zDir ({2[0]:.3f} {2[1]:.3f} {2[2]:.3f});\n    flowDir    {3};\n    z0 uniform {4:.4f};\n    zGround uniform {5:.3f}'.format(s_val,
+                                                                                                                                                                                                                                 self.flovi_u_zref,
+                                                                                                                                                                                                                                 self.flovi_u_zdir,
+                                                                                                                                                                                                                                 fd_val,
+                                                                                                                                                                                                                                 z0,
+                                                                                                                                                                                                                                 self.flovi_u_zground)
+                }
 
         entry = ktdict[self.flovi_k_subtype]
 
@@ -400,12 +465,54 @@ def fvmat(self, svp, mn, bound, frame):
 
     elif bound == 'e':
         val = 'uniform {:.4f}'.format(self.flovi_bmbe_val) if not self.flovi_e_field else '$internalField'
+        s_val = self.flovi_u_uref if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+
+        if self.flovi_u_type == '0':
+            v_vec = self.flovi_bmbu_val
+
+        else:
+            v_vec = Vector((self.flovi_u_speed * sin(pi * self.flovi_u_azi / 180), self.flovi_u_speed * cos(pi * self.flovi_u_azi / 180), 0))
+
+        if self.flovi_bmbe_subtype == 'atmBoundaryLayerInletEpsilon':
+            zref = self.flovi_u_uref if svp['flparams']['terrain'] == '5' else 10
+
+            if svp['flparams']['terrain'] == '0':
+                uref = 2.343 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.231
+            elif svp['flparams']['terrain'] == '1':
+                uref = 3.746 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '2':
+                uref = 3.75 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.036
+            elif svp['flparams']['terrain'] == '3':
+                uref = 5.0 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.0024
+            elif svp['flparams']['terrain'] == '4':
+                uref = 6.11 if not self.flovi_u_field else svp['flparams'][str(frame)]['Uspeed']
+                z0 = 0.000144
+            else:
+                uref = self.flovi_u_uref
+                z0 = self.flovi_u_z0
+
+            s_val = uref
+        else:
+            s_val, uref, z0, zref = 0, (0, 0, 0), 0, 10
+
+        fd_val = '({:.4f} {:.4f} {:.4f})'.format(*v_vec.normalized()) if not self.flovi_u_field else '$internalField'
+
         etdict = {'zeroGradient': 'zeroGradient',
                   'symmetry': 'symmetry',
                   'empty': 'empty',
                   'inletOutlet': 'inletOutlet;\n    inletValue    {}'.format(val),
                   'fixedValue': 'fixedValue;\n    value    {}'.format(val),
                   'epsilonWallFunction': 'epsilonWallFunction;\n    value    {}'.format(val),
+                  'atmBoundaryLayerInletEpsilon': 'atmBoundaryLayerInletEpsilon;\n    Uref {0:.3f};\n    Zref {1:.3f};\n    zDir ({2[0]:.3f} {2[1]:.3f} {2[2]:.3f});\n    flowDir    {3};\n    z0 uniform {4:.4f};\n    zGround uniform {5:.3f}'.format(s_val,
+                                                                                                                                                                                                                                 zref,
+                                                                                                                                                                                                                                 self.flovi_u_zdir,
+                                                                                                                                                                                                                                 fd_val,
+                                                                                                                                                                                                                                 z0,
+                                                                                                                                                                                                                                 self.flovi_u_zground),
                   'calculated': 'calculated;\n    value    {}'.format(val),
                   'turbulentMixingLengthDissipationRateInlet': 'turbulentMixingLengthDissipationRateInlet;\n    mixingLength  {:.5f};\n    value    {}'.format(self.flovi_eml_val, val)}
 
@@ -472,7 +579,7 @@ def fvvarwrite(scene, obs, node):
                                                                                     ('1', '0', '-3', '0', '{:.4f}'.format(node.Gval)))]
         for o in obs:
             mats = [mat for mat in o.data.materials if mat]
-            
+
             for mat in mats:
                 mvp = mat.vi_params
                 matname = '{}_{}'.format(o.name, mat.name)
@@ -501,6 +608,7 @@ def fvvarwrite(scene, obs, node):
                         if node.radiation:
                             Gentry += mvp.flovi_mat(svp, matname, 'G', frame)
                             b_dict[matname]['G'] = mvp.flovi_mat(svp, matname, 'G', frame)
+
                             if node.radmodel == '1':
                                 Ientry += mvp.flovi_mat(svp, matname, 'IDefault', frame)
                                 b_dict[matname]['IDefault'] = mvp.flovi_mat(svp, matname, 'IDefault', frame)
@@ -611,7 +719,8 @@ def fvfuncwrite(svp, node, dp):
         probe_vars = 'p U T k epsilon'
 
         for p in ps:
-            fdict[p.name.replace(" ", "_")] = {'libs': '("libsampling.so")', 'type': 'probes', 'name': '{}'.format(p.name.replace(" ", "_")), 'writeControl': 'timeStep',
+            pname = f'"{p.name.replace(" ", "_")}"'
+            fdict[pname] = {'libs': '("libsampling.so")', 'type': 'probes', 'name': '{}'.format(pname), 'writeControl': 'timeStep',
                                                'writeInterval': f'{node.w_int}', 'fields': '({0})'.format(probe_vars),
                                                'probeLocations\n(\n{}\n)'.format('   ({0[0]} {0[1]} {0[2]})'.format(p.location)): ''}
 
@@ -832,6 +941,26 @@ def fvschwrite(svp, node):
     return write_fvdict(htext, scdict)
 
 
+def fvshmwrite(node, bnames, mats):
+    htext = ofheader + write_ffile('dictionary', 'system', 'snappyHexMeshDict')
+
+    shmdict = {'castellatedMesh': 'false', 'snap': '           false', 'addLayers': '      true', 'mergeTolerance': ' 1e-6',
+        'geometry': {},
+        'castellatedMeshControls': {'maxGlobalCells':  '100000000', 'maxLocalCells': ' 20000000',
+            'minRefinementCells':  '0', 'resolveFeatureAngle': '0', 'nCellsBetweenLevels': '0', 'insidePoint': '(0 0 0)', 'allowFreeStandingZoneFaces': '0'},
+        'meshQualityControls': {'maxNonOrtho': '180', 'minVol': '-1e30', 'minTetQuality': '-1e30', 'maxConcave': '180', 'maxInternalSkewness': '100', 'maxSkewness': '100',
+            'maxBoundarySkewness': '100', 'minFaceWeight': '-1', 'minVolRatio': '-1e30', 'minTwist': '-1', 'minDeterminant': '-1e30', 'nSmoothScale': '10', 'minFlatness': '-1',
+            'errorReduction': '0', 'minArea': '-1', 'nSmoothScale':          '0'},
+        'snapControls': {'nSmoothPatch': '0', 'tolerance': '2.0', 'nSolveIter': '0', 'nRelaxIter': '0'},
+        'addLayersControls': {'relativeSizes ': 'false', 'layers': {param[0]: {'nSurfaceLayers': f'{param[1].vi_params.flovi_bl_nl}'} for param in zip(bnames, mats)},
+            'minThickness': '0.001', 'featureAngle': '180', 'maxFaceThicknessRatio': '1e30','expansionRatio': f'{node.b_layer_ex:.3f}', 'thickness': f'{node.b_layer_tt:.3f}',
+            'maxThicknessToMedialRatio': '1e30', 'minDeterminant': '-1e30',  'minFaceWeight': '-1', 'nGrow': '0', 'nSmoothSurfaceNormals': '0', 'nMedialAxisIter':     '80',
+            'slipDistance': {'Cube_Wind':       '1.0', 'Cube_Wind_free':       '1.0'},
+            'nBufferCellsNoExtrude': '0', 'nLayerIter': '1', 'minMedianAxisAngle': '-1', 'nSmoothNormals': '0', 'nSmoothThickness': '0', 'nRelaxIter': '1',
+            'errorReduction': '0'}}
+
+    return write_fvdict(htext, shmdict)
+
 def fvgwrite():
     htext = ofheader + write_ffile('uniformDimensionedVectorField', '"constant"', 'g')
     gdict = {'dimensions': '[0 1 -2 0 0 0 0]', 'value': '(0 0 -9.81)'}
@@ -863,7 +992,7 @@ def fvobjwrite(scene, fvos, bmo):
     for frame in range(svp['flparams']['start_frame'], svp['flparams']['end_frame'] + 1):
         for o in fvos:
             mats = [mat for mat in o.data.materials if mat]
-            
+
             with open(os.path.join(scene['flparams']['offilebase'], str(frame), 'constant', 'trisurface', '{}.obj'.format(o.name)), 'w') as objfile:
                 bm = bmesh.new()
                 tempmesh = o.to_mesh(scene=scene, apply_modifiers=True, settings='PREVIEW')
@@ -1016,12 +1145,12 @@ def ret_of_docker():
                     # Below is required to register the lines
                     print(lds[0], lds[1])
 
-                    if lds[0] == 'dicehub/openfoam' and lds[1] in valid_dockers:
+                    if lds[0] == 'microfluidica/openfoam' and lds[1] in valid_dockers:
                         return f"{lds[0]}:{lds[1]}"
                     else:
                         lds0 = lds[0].split(':')
 
-                        if lds0[0] == 'dicehub/openfoam' and lds0[1] in valid_dockers:
+                        if lds0[0] == 'microfluidica/openfoam' and lds0[1] in valid_dockers:
                             return f"{lds0[0]}:{lds0[1]}"
             else:
                 return ''

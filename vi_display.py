@@ -26,41 +26,31 @@ from .vi_func import ret_res_vals, draw_index_distance, selobj, mp2im, move_obs
 from .vi_func import logentry, move_to_coll, cmap, retvpvloc, objmode, skframe, clearscene
 from .vi_func import solarPosition, solarRiseSet, create_coll, create_empty_coll, compass, joinobj, sunpath, sunpath1
 from .livi_func import setscenelivivals, res_interpolate, res_direction
-# from .auvi_func import setsceneauvivals
-# from .livi_export import spfc
 from .vi_dicts import res2unit, unit2res
 from . import livi_export
 from .vi_svg import vi_info
 from math import pi, log10, atan2, sin, cos
 from numpy import array, repeat, logspace, multiply, digitize, frombuffer, ubyte, float32, int8
 from numpy import min as nmin
-#from numpy import max as nmax
 from numpy import sum as nsum
 from numpy import log10 as nlog10
 from numpy import append as nappend
 from xml.dom.minidom import parseString
-# from bpy.app.handlers import persistent
-from PySide6.QtGui import QImage  #, QPdfWriter, QPagedPaintDevice, QPainter, QPageSize
-# from PySide6.QtPrintSupport import QPrinter
-# from PySide6.QtSvg import QSvgRenderer
-# from PySide6.QtCore import QSizeF, QMarginsF
-# from PySide6.QtCore import QSize
-# from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QImage
 
 
 try:
     import matplotlib
     matplotlib.use('qtagg', force=True)
-    # from matplotlib import rcParams
-    # rcParams['font.family'] = 'Noto Sans'
     import matplotlib.pyplot as plt
     plt.ion()
     plt.ioff()
-    import matplotlib.cm as mcm
+    # import matplotlib.pyplot as mcm
     import matplotlib.colors as mcolors
     from matplotlib.patches import Rectangle
     from matplotlib.collections import PatchCollection
     mp = 1
+
 except Exception as e:
     print("No matplotlib: {}".format(e))
     mp = 0
@@ -130,7 +120,7 @@ def leg_update(self, context):
                     if bpy.data.materials[matname] not in o.data.materials[:]:
                         bpy.ops.object.material_slot_add()
                         o.material_slots[-1].material = bpy.data.materials[matname]
-                
+
                 while len(o.material_slots) > svp.vi_leg_levels:
                     bpy.ops.object.material_slot_remove()
 
@@ -336,15 +326,6 @@ def livires_update(self, context):
         e_update(self, context)
 
 
-# def auvires_update(self, context):
-#     setsceneauvivals(context.scene)
-#
-#     for o in [o for o in bpy.data.objects if o.vi_params.vi_type_string == 'AuVi Res']:
-#         o.vi_params.lividisplay(context.scene)
-#
-#     e_update(self, context)
-
-
 def rendview(i):
     for scrn in bpy.data.screens:
         for area in scrn.areas:
@@ -364,7 +345,7 @@ def li_display(context, disp_op, simnode):
     svp = scene.vi_params
     svp.li_disp_menu = unit2res[svp['liparams']['unit']]
     setscenelivivals(scene)
-    
+
     (rcol, mtype) = ('hot', 'livi') if 'LiVi' in simnode.bl_label else ('grey', 'shad')
 
     for geo in context.view_layer.objects:
@@ -386,7 +367,6 @@ def li_display(context, disp_op, simnode):
     scene.frame_set(svp['liparams']['fs'])
     context.view_layer.objects.active = None
     cmap(svp)
-    
 
     for i, o in enumerate(obcalclist):
         ovp = o.vi_params
@@ -436,7 +416,6 @@ def li_display(context, disp_op, simnode):
                     bm.verts.remove(v)
                 for v in bm.verts:
                     v.select = True
-            
 
             while bm.verts.layers.shape:
                 bm.verts.layers.shape.remove(bm.verts.layers.shape[-1])
@@ -444,7 +423,7 @@ def li_display(context, disp_op, simnode):
             for v in bm.verts:
                 v_norm = mathutils.Vector((nsum([f.normal for f in v.link_faces], axis=0))).normalized()
                 v.co += mathutils.Vector([v_norm[i] / abs(o.scale[i]) for i in range(3)]) * simnode['goptions']['offset']
-            
+
             selobj(context.view_layer, o)
             bpy.ops.object.duplicate()
 
@@ -454,7 +433,7 @@ def li_display(context, disp_op, simnode):
             if not context.active_object:
                 disp_op.report({'ERROR'}, "No display object. If in local view switch to global view and/or re-export the geometry")
                 return 'CANCELLED'
-            
+
             ores = context.active_object
             ores.name, ores.show_wire, ores.show_all_edges, ores.display_type, orvp, ores.vi_params.vi_type_string = o.name + "res", 1, 1, 'SOLID', ores.vi_params, 'LiVi Res'
             move_to_coll(context, 'LiVi Results', ores)
@@ -687,7 +666,7 @@ class linumdisplay():
 
                     res = array([v[livires] for v in verts])
                     res = ret_res_vals(svp, res)
-                    
+
             bm.free()
 
             if len(res):
@@ -868,7 +847,7 @@ class draw_bsdf(Base_Display):
         sa = repeat(kfsa, self.phis)
         act = repeat(kfact, self.phis)
         patchdat = selectdat[self.sseg - 1] * act * sa * 100
-        bg = self.plt.Rectangle((0, 0), 2 * pi, 1, color=mcm.get_cmap(svp.vi_leg_col)((0, 0.01)[svp.vi_bsdfleg_scale == '1']), zorder=0)
+        bg = self.plt.Rectangle((0, 0), 2 * pi, 1, color=plt.get_cmap(svp.vi_leg_col)((0, 0.01)[svp.vi_bsdfleg_scale == '1']), zorder=0)
 
         for ring in range(1, 10):
             angdiv = pi / self.phis[ring - 1]
@@ -1089,7 +1068,7 @@ class wr_legend(Base_Display):
             self.levels = simnode['nbins']
             maxres = simnode['maxres']
 
-        self.cols = retcols(mcm.get_cmap(svp.vi_leg_col), self.levels)
+        self.cols = retcols(plt.get_cmap(svp.vi_leg_col), self.levels)
         self.colours = [item for item in [self.cols[i] for i in range(self.levels)] for i in range(4)]
 
         if not svp.get('liparams'):
@@ -1398,11 +1377,11 @@ class draw_legend(Base_Display):
             self.levels = svp.vi_leg_levels
             self.lh = 1 / (self.levels + 1.5)
             self.cao = context.active_object
-            self.cols = retcols(mcm.get_cmap(svp.vi_leg_col), self.levels)
+            self.cols = retcols(plt.get_cmap(svp.vi_leg_col), self.levels)
             (self.minres, self.maxres) = leg_min_max(svp)
             self.col, self.scale = svp.vi_leg_col, svp.vi_leg_scale
             self.unit = res2unit[svp.li_disp_menu] if not svp.vi_leg_unit else svp.vi_leg_unit
-            self.cols = retcols(mcm.get_cmap(svp.vi_leg_col), self.levels)
+            self.cols = retcols(plt.get_cmap(svp.vi_leg_col), self.levels)
             resdiff = self.maxres - self.minres
 
             if not svp.get('liparams'):
@@ -1473,7 +1452,7 @@ class draw_legend(Base_Display):
             self.basel_batch.draw(self.basel_shader)
             self.unit = svp.vi_leg_unit if svp.vi_leg_unit else res2unit[svp.li_disp_menu]
 
-            if self.levels != svp.vi_leg_levels or self.cols != retcols(mcm.get_cmap(svp.vi_leg_col), self.levels) or (self.minres, self.maxres) != leg_min_max(svp):
+            if self.levels != svp.vi_leg_levels or self.cols != retcols(plt.get_cmap(svp.vi_leg_col), self.levels) or (self.minres, self.maxres) != leg_min_max(svp):
                 self.update(context)
                 (vl_coords, fl_indices) = self.ret_coords()
                 self.line_batch = batch_for_shader(self.line_shader, 'LINE_LOOP', {"position": vl_coords})
@@ -2148,7 +2127,7 @@ class NODE_OT_SunPath(bpy.types.Operator):
         if context.screen:
             for a in context.screen.areas:
                 if a.type == 'VIEW_3D':
-                    a.spaces[0].shading.shadow_intensity = svp.sp_sun_strength * 0.5
+                    a.spaces[0].shading.shadow_intensity = svp.sp_sun_strength
 
         self.suns = [sun for sun in context.view_layer.objects if sun.type == "LIGHT" and sun.data.type == 'SUN']
         self.sp = scene.objects['SPathMesh']
@@ -2185,10 +2164,12 @@ class NODE_OT_SunPath(bpy.types.Operator):
                 bpy.app.handlers.frame_change_post.remove(h)
 
             [bpy.data.objects.remove(o, do_unlink=True, do_id_user=True, do_ui_user=True) for o in bpy.data.objects if o.vi_params.get('VIType') and o.vi_params['VIType'] in ('SunMesh', 'SkyMesh')]
+
             try:
                 context.view_layer.layer_collection.children[self.spcoll.name].exclude = 1
             except Exception:
                 pass
+
             return {'CANCELLED'}
 
         return {'PASS_THROUGH'}

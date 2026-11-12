@@ -16,92 +16,115 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
-import sys
 import os
+import sys
+from math import ceil, floor, log
+
+import bpy
 
 # import datetime
 # from .envi_func import retmenu
-from numpy import amax, amin, linspace, sin, cos, sign, deg2rad, zeros, meshgrid, clip
-from math import log, ceil, floor
+from numpy import amax, amin, clip, cos, deg2rad, linspace, meshgrid, sign, sin, zeros
 from scipy.ndimage import zoom
 
 
 def label(dnode, metric, axis, variant):
-    catdict = {'clim': 'Ambient', 'zone spatial': 'Zone spatial', 'zone temporal': 'Zone temporal',
-               'Embodied carbon': 'Embodied carbon', 'Linkage': 'Linkage', 'External': 'External', 'Frames': 'Frame',
-               'metric': dnode.inputs[axis].resultmenu + ' metric', 'type': metric}
-    animdict = {'metric': dnode.inputs[axis].resultmenu, 'type': metric}
+    catdict = {
+        "clim": "Ambient",
+        "zone spatial": "Zone spatial",
+        "zone temporal": "Zone temporal",
+        "Embodied carbon": "Embodied carbon",
+        "Linkage": "Linkage",
+        "External": "External",
+        "Frames": "Frame",
+        "metric": dnode.inputs[axis].resultmenu + " metric",
+        "type": metric,
+    }
+    animdict = {"metric": dnode.inputs[axis].resultmenu, "type": metric}
 
-    if dnode.inputs['X-axis'].resultmenu == 'Frames':
+    if dnode.inputs["X-axis"].resultmenu == "Frames":
         return animdict[variant]
     else:
         return catdict[variant]
 
 
 def llabel(dnode, metric, axis, variant):
-    rdict = {'Climate': 'Ambient',
-             'Zone spatial': dnode.inputs[axis].zonemenu,
-             'Zone temporal': dnode.inputs[axis].zonemenu,
-             'Embodied carbon': dnode.inputs[axis].zonemenu,
-             'Carbon': dnode.inputs[axis].zonemenu,
-             'Linkage': dnode.inputs[axis].zonemenu,
-             'Frames': 'Frames', 'Camera': dnode.inputs[axis].zonemenu,
-             'Position': dnode.inputs[axis].zonemenu,
-             'External': dnode.inputs[axis].zonemenu,
-             'Power': dnode.inputs[axis].zonemenu,
-             'Probe': dnode.inputs[axis].zonemenu,
-             'Surface': dnode.inputs[axis].zonemenu,
-             'Time': dnode.inputs[axis].zonemenu,
-             'Timestep': dnode.inputs[axis].zonemenu}
-    ldict = {'type': rdict[dnode.inputs[axis].resultmenu], 'metric': metric, }
+    rdict = {
+        "Climate": "Ambient",
+        "Zone spatial": dnode.inputs[axis].zonemenu,
+        "Zone temporal": dnode.inputs[axis].zonemenu,
+        "Embodied carbon": dnode.inputs[axis].zonemenu,
+        "Carbon": dnode.inputs[axis].zonemenu,
+        "Linkage": dnode.inputs[axis].zonemenu,
+        "Frames": "Frames",
+        "Camera": dnode.inputs[axis].zonemenu,
+        "Position": dnode.inputs[axis].zonemenu,
+        "External": dnode.inputs[axis].zonemenu,
+        "Power": dnode.inputs[axis].zonemenu,
+        "Probe": dnode.inputs[axis].zonemenu,
+        "Surface": dnode.inputs[axis].zonemenu,
+        "Time": dnode.inputs[axis].zonemenu,
+        "Timestep": dnode.inputs[axis].zonemenu,
+    }
+    ldict = {
+        "type": rdict[dnode.inputs[axis].resultmenu],
+        "metric": metric,
+    }
     return ldict[variant]
 
 
 def statdata(res, stat):
-    if stat == 'Average':
-        return ([sum(r) / len(r) for r in res])
-    elif stat == 'Maximum':
-        return ([max(r) for r in res])
-    elif stat == 'Minimum':
-        return ([min(r) for r in res])
-    elif stat == 'Sum':
-        return ([sum(r) for r in res])
+    if stat == "Average":
+        return [sum(r) / len(r) for r in res]
+    elif stat == "Maximum":
+        return [max(r) for r in res]
+    elif stat == "Minimum":
+        return [min(r) for r in res]
+    elif stat == "Sum":
+        return [sum(r) for r in res]
 
 
 def rvariant(dnode):
-    axes = ('Y-axis 1', 'Y-axis 2', 'Y-axis 3')
-    zones = [dnode.inputs[axis].zonemenu for axis in axes if dnode.inputs[axis].links and dnode.inputs[axis].resultmenu == 'Zone spatial']
-    clims = [dnode.inputs[axis].metricmenu for axis in axes if dnode.inputs[axis].links and dnode.inputs[axis].resultmenu == 'Climate']
+    axes = ("Y-axis 1", "Y-axis 2", "Y-axis 3")
+    zones = [
+        dnode.inputs[axis].zonemenu
+        for axis in axes
+        if dnode.inputs[axis].links and dnode.inputs[axis].resultmenu == "Zone spatial"
+    ]
+    clims = [
+        dnode.inputs[axis].metricmenu
+        for axis in axes
+        if dnode.inputs[axis].links and dnode.inputs[axis].resultmenu == "Climate"
+    ]
 
     if zones and len(set(zones)) + len(set(clims)) == len(zones + clims):
-        return 'type'
+        return "type"
     else:
-        return 'metric'
+        return "metric"
 
 
 def timedata(datastring, timetype, stattype, months, days, dos, dnode, Sdate, Edate):
-    if dnode.inputs['X-axis'].resultmenu != 'Time' or timetype == '0':
+    if dnode.inputs["X-axis"].resultmenu != "Time" or timetype == "0":
         return datastring
     else:
-        if timetype == '1' and dnode.inputs['X-axis'].resultmenu == 'Time':
+        if timetype == "1" and dnode.inputs["X-axis"].resultmenu == "Time":
             res = [[] for d in range(len(set(dos)))]
 
             for h, val in enumerate(datastring):
                 res[dos[h] - dos[0]].append(val)
 
-        elif timetype == '2' and dnode.inputs['X-axis'].resultmenu == 'Time':
+        elif timetype == "2" and dnode.inputs["X-axis"].resultmenu == "Time":
             res = [[] for m in range(len(set(months)))]
 
             for h, val in enumerate(datastring):
                 res[months[h] - months[0]].append(val)
 
-        return (statdata(res, stattype))
+        return statdata(res, stattype)
 
 
 def retframe(axis, dnode, frames):
-    if len(set(frames)) > 1 and dnode.inputs['X-axis'].resultmenu == 'Frames':
-        return 'All'
+    if len(set(frames)) > 1 and dnode.inputs["X-axis"].resultmenu == "Frames":
+        return "All"
     elif len(set(frames)) > 1:
         return dnode.inputs[axis].framemenu
     else:
@@ -110,22 +133,62 @@ def retframe(axis, dnode, frames):
 
 def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
     addondir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
-    vi_prefs = bpy.context.preferences.addons["bl_ext.user_default.{}".format(addondir)].preferences
-    plt.close('all')
+    vi_prefs = bpy.context.preferences.addons[
+        "bl_ext.user_default.{}".format(addondir)
+    ].preferences
+    plt.close("all")
     plt.style.use(vi_prefs.mpl_style)
     fig, ax = plt.subplots(dpi=dnode.dpi)
     variant = rvariant(dnode)
-    rsx = dnode.inputs['X-axis']
+    rsx = dnode.inputs["X-axis"]
     rnx = rsx.links[0].from_node
-    rlx = rnx['reslists']
-    mdata = [rx[4].split() for rx in rlx if rx[0] == rsx.framemenu and rx[1] == 'Time' and rx[2] == 'Time' and rx[3] == 'Month']
-    ddata = [rx[4].split() for rx in rlx if rx[0] == rsx.framemenu and rx[1] == 'Time' and rx[2] == 'Time' and rx[3] == 'Day']
-    sdata = [rx[4].split() for rx in rlx if rx[0] == rsx.framemenu and rx[1] == 'Time' and rx[2] == 'Time' and rx[3] == 'DOS']
-    hdata = [rx[4].split() for rx in rlx if rx[0] == rsx.framemenu and rx[1] == 'Time' and rx[2] == 'Time' and rx[3] == 'Hour']
-    tdata = [rx[4].split() for rx in rlx if rx[0] == rsx.framemenu and rx[1] == 'Time' and rx[2] == 'Time' and rx[3] == 'Steps']
+    rlx = rnx["reslists"]
+    mdata = [
+        rx[4].split()
+        for rx in rlx
+        if rx[0] == rsx.framemenu
+        and rx[1] == "Time"
+        and rx[2] == "Time"
+        and rx[3] == "Month"
+    ]
+    ddata = [
+        rx[4].split()
+        for rx in rlx
+        if rx[0] == rsx.framemenu
+        and rx[1] == "Time"
+        and rx[2] == "Time"
+        and rx[3] == "Day"
+    ]
+    sdata = [
+        rx[4].split()
+        for rx in rlx
+        if rx[0] == rsx.framemenu
+        and rx[1] == "Time"
+        and rx[2] == "Time"
+        and rx[3] == "DOS"
+    ]
+    hdata = [
+        rx[4].split()
+        for rx in rlx
+        if rx[0] == rsx.framemenu
+        and rx[1] == "Time"
+        and rx[2] == "Time"
+        and rx[3] == "Hour"
+    ]
+    tdata = [
+        rx[4].split()
+        for rx in rlx
+        if rx[0] == rsx.framemenu
+        and rx[1] == "Time"
+        and rx[2] == "Time"
+        and rx[3] == "Steps"
+    ]
 
-    if rsx.resultmenu != 'Time':
-        si, ei = dnode["Start"] - dnode.id_properties_ui("Start").as_dict()['min'], dnode["End"] - dnode.id_properties_ui("Start").as_dict()['min']
+    if rsx.resultmenu != "Time":
+        si, ei = (
+            dnode["Start"] - dnode.id_properties_ui("Start").as_dict()["min"],
+            dnode["End"] - dnode.id_properties_ui("Start").as_dict()["min"],
+        )
     else:
         sm, sd, em, ed = Sdate.month, Sdate.day, Edate.month, Edate.day
 
@@ -144,81 +207,165 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
                     ei += len(list(set(hdata[0]))) - 1
                     break
 
-            mdata = [int(m) for m in mdata[0]][si:ei + 1]
-            ddata = [int(d) for d in ddata[0]][si:ei + 1]
-            sdata = [int(s) for s in sdata[0]][si:ei + 1]
+            mdata = [int(m) for m in mdata[0]][si : ei + 1]
+            ddata = [int(d) for d in ddata[0]][si : ei + 1]
+            sdata = [int(s) for s in sdata[0]][si : ei + 1]
         else:
             si, ei = 0, -2
 
     # linestyles = ('solid', '--', ':')
     # colors = ('k', 'k', 'k')
 
-    if rsx.resultmenu == 'Time':
-        if dnode.timemenu == '0':
+    if rsx.resultmenu == "Time":
+        if dnode.timemenu == "0":
             xdata = range(1, ei - si + 2)
-            xlabel = 'Time (hours)'
-        elif dnode.timemenu == '1':
-            xdata = range(dnode['Start'], dnode['End'] + 1)
-            xlabel = 'Time (day of year)'
-        elif dnode.timemenu == '2':
+            xlabel = "Time (hours)"
+        elif dnode.timemenu == "1":
+            xdata = range(dnode["Start"], dnode["End"] + 1)
+            xlabel = "Time (day of year)"
+        elif dnode.timemenu == "2":
             xdata = range(Sdate.month, Edate.month + 1)
-            xlabel = 'Time (months)'
-        if rnx.bl_label == 'FloVi Simulation':
+            xlabel = "Time (months)"
+        if rnx.bl_label == "FloVi Simulation":
             xdata = [float(s) for s in tdata[0]][si:ei]
-            xlabel = 'False time'
+            xlabel = "False time"
     else:
-        data = [rx[4].split()[si:ei + 1] for rx in rlx if rx[0] == rsx.framemenu and rx[1] == rsx.resultmenu and rx[2] == rsx.zonemenu and rx[3] == rsx.metricmenu][0]
-        xdata = timedata([rsx.multfactor * float(xd) for xd in data], dnode.timemenu, rsx.statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
+        data = [
+            rx[4].split()[si : ei + 1]
+            for rx in rlx
+            if rx[0] == rsx.framemenu
+            and rx[1] == rsx.resultmenu
+            and rx[2] == rsx.zonemenu
+            and rx[3] == rsx.metricmenu
+        ][0]
+        xdata = timedata(
+            [rsx.multfactor * float(xd) for xd in data],
+            dnode.timemenu,
+            rsx.statmenu,
+            mdata,
+            ddata,
+            sdata,
+            dnode,
+            Sdate,
+            Edate,
+        )
         xlabel = rsx.metricmenu
 
-    rny1 = dnode.inputs['Y-axis 1'].links[0].from_node
-    rly1 = rny1['reslists']
+    rny1 = dnode.inputs["Y-axis 1"].links[0].from_node
+    rly1 = rny1["reslists"]
     rzly1 = list(zip(*rly1))
-    framey1 = retframe('Y-axis 1', dnode, rzly1[0])
+    framey1 = retframe("Y-axis 1", dnode, rzly1[0])
 
     try:
-        y1d = [ry1[4].split()[si:ei + 1] for ry1 in rly1 if ry1[0] == framey1 and ry1[1] == dnode.inputs['Y-axis 1'].resultmenu and ry1[2] == dnode.inputs['Y-axis 1'].zonemenu and ry1[3] == dnode.inputs['Y-axis 1'].metricmenu][0]
+        y1d = [
+            ry1[4].split()[si : ei + 1]
+            for ry1 in rly1
+            if ry1[0] == framey1
+            and ry1[1] == dnode.inputs["Y-axis 1"].resultmenu
+            and ry1[2] == dnode.inputs["Y-axis 1"].zonemenu
+            and ry1[3] == dnode.inputs["Y-axis 1"].metricmenu
+        ][0]
         [float(y) for y in y1d]
     except Exception as e:
-        chart_op.report({'ERROR'}, 'Invalid data on the y1 axis: {}'.format(e))
+        chart_op.report({"ERROR"}, "Invalid data on the y1 axis: {}".format(e))
         return
 
-    y1data = timedata([dnode.inputs['Y-axis 1'].multfactor * float(y) for y in y1d], dnode.timemenu, dnode.inputs['Y-axis 1'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
-    ylabel = label(dnode, dnode.inputs['Y-axis 1'].metricmenu, 'Y-axis 1', variant)
+    y1data = timedata(
+        [dnode.inputs["Y-axis 1"].multfactor * float(y) for y in y1d],
+        dnode.timemenu,
+        dnode.inputs["Y-axis 1"].statmenu,
+        mdata,
+        ddata,
+        sdata,
+        dnode,
+        Sdate,
+        Edate,
+    )
+    ylabel = label(dnode, dnode.inputs["Y-axis 1"].metricmenu, "Y-axis 1", variant)
     drange = checkdata(chart_op, xdata, y1data)
-    line, = ax.plot(xdata[:drange], y1data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 1'].metricmenu, 'Y-axis 1', variant))
+    (line,) = ax.plot(
+        xdata[:drange],
+        y1data[:drange],
+        label=llabel(dnode, dnode.inputs["Y-axis 1"].metricmenu, "Y-axis 1", variant),
+    )
 
-    if dnode.inputs['Y-axis 2'].links:
-        rny2 = dnode.inputs['Y-axis 2'].links[0].from_node
-        rly2 = rny2['reslists']
+    if dnode.inputs["Y-axis 2"].links:
+        rny2 = dnode.inputs["Y-axis 2"].links[0].from_node
+        rly2 = rny2["reslists"]
         rzly2 = list(zip(*rly2))
-        framey2 = retframe('Y-axis 2', dnode, rzly2[0])
+        framey2 = retframe("Y-axis 2", dnode, rzly2[0])
 
         try:
-            y2d = [ry2[4].split()[si:ei + 1] for ry2 in rly2 if ry2[0] == framey2 and ry2[1] == dnode.inputs['Y-axis 2'].resultmenu and ry2[2] == dnode.inputs['Y-axis 2'].zonemenu and ry2[3] == dnode.inputs['Y-axis 2'].metricmenu][0]
+            y2d = [
+                ry2[4].split()[si : ei + 1]
+                for ry2 in rly2
+                if ry2[0] == framey2
+                and ry2[1] == dnode.inputs["Y-axis 2"].resultmenu
+                and ry2[2] == dnode.inputs["Y-axis 2"].zonemenu
+                and ry2[3] == dnode.inputs["Y-axis 2"].metricmenu
+            ][0]
         except Exception as e:
-            chart_op.report({'ERROR'}, 'Invalid data on the y2 axis: {}'.format(e))
+            chart_op.report({"ERROR"}, "Invalid data on the y2 axis: {}".format(e))
             return
 
-        y2data = timedata([dnode.inputs['Y-axis 2'].multfactor * float(y) for y in y2d], dnode.timemenu, dnode.inputs['Y-axis 2'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
+        y2data = timedata(
+            [dnode.inputs["Y-axis 2"].multfactor * float(y) for y in y2d],
+            dnode.timemenu,
+            dnode.inputs["Y-axis 2"].statmenu,
+            mdata,
+            ddata,
+            sdata,
+            dnode,
+            Sdate,
+            Edate,
+        )
         drange = checkdata(chart_op, xdata, y2data)
-        line, = ax.plot(xdata[:drange], y2data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 2'].metricmenu, 'Y-axis 2', variant))
+        (line,) = ax.plot(
+            xdata[:drange],
+            y2data[:drange],
+            label=llabel(
+                dnode, dnode.inputs["Y-axis 2"].metricmenu, "Y-axis 2", variant
+            ),
+        )
 
-    if dnode.inputs['Y-axis 3'].links:
-        rny3 = dnode.inputs['Y-axis 3'].links[0].from_node
-        rly3 = rny3['reslists']
+    if dnode.inputs["Y-axis 3"].links:
+        rny3 = dnode.inputs["Y-axis 3"].links[0].from_node
+        rly3 = rny3["reslists"]
         rzly3 = list(zip(*rly3))
-        framey3 = retframe('Y-axis 3', dnode, rzly3[0])
+        framey3 = retframe("Y-axis 3", dnode, rzly3[0])
 
         try:
-            y3d = [ry3[4].split()[si:ei + 1] for ry3 in rly3 if ry3[0] == framey3 and ry3[1] == dnode.inputs['Y-axis 3'].resultmenu and ry3[2] == dnode.inputs['Y-axis 3'].zonemenu and ry3[3] == dnode.inputs['Y-axis 3'].metricmenu][0]
+            y3d = [
+                ry3[4].split()[si : ei + 1]
+                for ry3 in rly3
+                if ry3[0] == framey3
+                and ry3[1] == dnode.inputs["Y-axis 3"].resultmenu
+                and ry3[2] == dnode.inputs["Y-axis 3"].zonemenu
+                and ry3[3] == dnode.inputs["Y-axis 3"].metricmenu
+            ][0]
         except Exception as e:
-            chart_op.report({'ERROR'}, 'Invalid data on the y3 axis: {}'.format(e))
+            chart_op.report({"ERROR"}, "Invalid data on the y3 axis: {}".format(e))
             return
 
-        y3data = timedata([dnode.inputs['Y-axis 3'].multfactor * float(y) for y in y3d], dnode.timemenu, dnode.inputs['Y-axis 3'].statmenu, mdata, ddata, sdata, dnode, Sdate, Edate)
+        y3data = timedata(
+            [dnode.inputs["Y-axis 3"].multfactor * float(y) for y in y3d],
+            dnode.timemenu,
+            dnode.inputs["Y-axis 3"].statmenu,
+            mdata,
+            ddata,
+            sdata,
+            dnode,
+            Sdate,
+            Edate,
+        )
         drange = checkdata(chart_op, xdata, y3data)
-        line, = ax.plot(xdata[:drange], y3data[:drange], label=llabel(dnode, dnode.inputs['Y-axis 3'].metricmenu, 'Y-axis 3', variant))
+        (line,) = ax.plot(
+            xdata[:drange],
+            y3data[:drange],
+            label=llabel(
+                dnode, dnode.inputs["Y-axis 3"].metricmenu, "Y-axis 3", variant
+            ),
+        )
 
     try:
         plt.xlabel(xlabel)
@@ -226,13 +373,13 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
         plt.legend()
         plt.grid(True)
 
-        if sys.platform == 'darwin':
+        if sys.platform == "darwin":
             plt.ion()
 
         plt.show()
 
     except Exception as e:
-        chart_op.report({'ERROR'}, '{} Invalid data for this component'.format(e))
+        chart_op.report({"ERROR"}, "{} Invalid data for this component".format(e))
 
     def plot_graph(*args):
         args[0][0].plot()
@@ -241,7 +388,12 @@ def chart_disp(chart_op, plt, dnode, rnodes, Sdate, Edate):
 
 def checkdata(chart_op, x, y):
     if len(x) != len(y):
-        chart_op.report({'WARNING'}, 'X ({} points) and Y ({} points) data are not the same length'.format(len(x), len(y)))
+        chart_op.report(
+            {"WARNING"},
+            "X ({} points) and Y ({} points) data are not the same length".format(
+                len(x), len(y)
+            ),
+        )
         drange = min(len(x), len(y))
     else:
         drange = len(x)
@@ -253,18 +405,18 @@ def hmchart_disp(chart_op, plt, dnode, col):
     x, y, z, var = dnode.x, dnode.y, dnode.z, dnode.metricmenu
 
     if any([s < 2 for s in z.shape]):
-        chart_op.report({'ERROR'}, 'Not enough day/hour range for a heatmap')
+        chart_op.report({"ERROR"}, "Not enough day/hour range for a heatmap")
         return
 
     xmin = dnode.daystart if dnode.daystart > amin(x) else amin(x)
     xmax = dnode.dayend if dnode.dayend < amax(x) else amax(x)
     ymin = dnode.hourstart if dnode.hourstart > amin(y) else amin(y)
     ymax = dnode.hourend if dnode.hourend < amax(y) else amax(y)
-    zmin = dnode.varmin if dnode.metricrange == '1' else amin(z)
-    zmax = dnode.varmax if dnode.metricrange == '1' else amax(z)
+    zmin = dnode.varmin if dnode.metricrange == "1" else amin(z)
+    zmax = dnode.varmax if dnode.metricrange == "1" else amax(z)
 
     if zmax <= zmin and dnode.cf:
-        chart_op.report({'ERROR'}, 'Maximum metric value is not greater than minimum')
+        chart_op.report({"ERROR"}, "Maximum metric value is not greater than minimum")
         return
 
     if dnode.m_average and xmin == 1 and xmax == 365 and ymin == 0 and ymax == 23:
@@ -284,17 +436,17 @@ def hmchart_disp(chart_op, plt, dnode, col):
 
         # Y-axis padding (Hour 0 = Hour 24, Hour 25 = Hour 1)
         grid[1:13, 0] = monthly_avg[:, 23]  # Hour 0 column gets data from Hour 24
-        grid[1:13, 25] = monthly_avg[:, 0]   # Hour 25 column gets data from Hour 1
+        grid[1:13, 25] = monthly_avg[:, 0]  # Hour 25 column gets data from Hour 1
 
         # X-axis padding (Month 0 = Month 12, Month 13 = Month 1)
-        grid[0, 1:25] = monthly_avg[11, :] # Month 0 row gets data from Month 12
+        grid[0, 1:25] = monthly_avg[11, :]  # Month 0 row gets data from Month 12
         grid[13, 1:25] = monthly_avg[0, :]  # Month 13 row gets data from Month 1
 
         # Set corner values for seamless interpolation
-        grid[0, 0] = monthly_avg[11, 23] # Month 0, Hour 0 = Month 12, Hour 24
+        grid[0, 0] = monthly_avg[11, 23]  # Month 0, Hour 0 = Month 12, Hour 24
         grid[0, 25] = monthly_avg[11, 0]  # Month 0, Hour 25 = Month 12, Hour 1
         grid[13, 0] = monthly_avg[0, 23]  # Month 13, Hour 0 = Month 1, Hour 24
-        grid[13, 25] = monthly_avg[0, 0]   # Month 13, Hour 25 = Month 1, Hour 1
+        grid[13, 25] = monthly_avg[0, 0]  # Month 13, Hour 25 = Month 1, Hour 1
 
         # Transpose for plotting (26 hours x 14 months)
         temp_grid = grid.T
@@ -309,7 +461,7 @@ def hmchart_disp(chart_op, plt, dnode, col):
         y = linspace(0, 25, zoomed_temp_grid.shape[0])
         x, y = meshgrid(x, y)
         z = zoomed_temp_grid
-        dp = int(1/log(zmax-zmin))
+        dp = int(1 / log(zmax - zmin))
         zmax = ceil(amax(z) * 10**dp) / 10**dp
         # zmin = floor(amin(z) * 10**dp) / 10**dp
         zmin = dnode.sl
@@ -325,50 +477,92 @@ def hmchart_disp(chart_op, plt, dnode, col):
         plt.clf()
         plt.close()
         fig, ax = plt.subplots(figsize=(12, 6), dpi=dnode.dpi)
-        plt.xlabel('Months', size=16)
-        plt.ylabel('Hours', size=16)
-        plt.title('', size=40)
-        ax.set_title('', pad=50)
+        plt.xlabel("Months", size=16)
+        plt.ylabel("Hours", size=16)
+        plt.title("", size=40)
+        ax.set_title("", pad=50)
         plt.xticks(range(1, 13), range(1, 13), size=14)
         plt.yticks(range(1, 25), range(1, 25), size=14)
-        bar_extend = 'min' if zmin > amin(z) else 'neither'
-        cf_levels = [zmin + i * dnode.ci for i in range(int((zmax-zmin)/dnode.ci) + 1)]
-        c_levels = [zmin + (i + c_start) * dnode.ci for i in range(int((zmax-zmin)/dnode.ci) + 1)]
+        bar_extend = "min" if zmin > amin(z) else "neither"
+        cf_levels = [
+            zmin + i * dnode.ci for i in range(int((zmax - zmin) / dnode.ci) + 1)
+        ]
+        c_levels = [
+            zmin + (i + c_start) * dnode.ci
+            for i in range(int((zmax - zmin) / dnode.ci) + 1)
+        ]
 
         if len(c_levels) < 2:
-            chart_op.report({'ERROR'}, 'Not enough contour levels')
+            chart_op.report({"ERROR"}, "Not enough contour levels")
             return
 
         plt.contourf(x, y, z, cf_levels, levels=cf_levels, cmap=col, extend=bar_extend)
         plt.axis([xmin, xmax, ymin, ymax])
-        cbar = plt.colorbar(use_gridspec=True, pad=0.01, extend=bar_extend, ticks=c_levels)
+        cbar = plt.colorbar(
+            use_gridspec=True, pad=0.01, extend=bar_extend, ticks=c_levels
+        )
         cbar.set_label(label=var, size=16)
         cbar.ax.tick_params(labelsize=14)
-        cp = plt.contour(x, y, z, linspace(zmin + (zmax - zmin)/dnode.ci, zmax, num=int((zmax - zmin)/dnode.ci)) + 1, levels=c_levels, colors='Black', linewidths=dnode.lw)
+        cp = plt.contour(
+            x,
+            y,
+            z,
+            linspace(
+                zmin + (zmax - zmin) / dnode.ci, zmax, num=int((zmax - zmin) / dnode.ci)
+            )
+            + 1,
+            levels=c_levels,
+            colors="Black",
+            linewidths=dnode.lw,
+        )
         plt.clabel(cp, inline=True, fontsize=10)
     else:
         plt.clf()
         plt.close()
         fig, ax = plt.subplots(figsize=(12, 6), dpi=dnode.dpi)
-        plt.xlabel('Days', size=16)
-        plt.ylabel('Hours', size=16)
-        low_extend = 'lower' if zmin > amin(z) else 0
-        up_extend = 'upper' if zmax < amax(z) else 0
+        plt.xlabel("Days", size=16)
+        plt.ylabel("Hours", size=16)
+        low_extend = "lower" if zmin > amin(z) else 0
+        up_extend = "upper" if zmax < amax(z) else 0
 
         if all((low_extend, up_extend)):
-            bar_extend = 'both'
+            bar_extend = "both"
         elif not any((low_extend, up_extend)):
-            bar_extend = 'neither'
+            bar_extend = "neither"
         else:
-            bar_extend = ('', 'min')[low_extend == 'lower'] + ('', 'max')[up_extend == 'upper']
+            bar_extend = ("", "min")[low_extend == "lower"] + ("", "max")[
+                up_extend == "upper"
+            ]
 
         if dnode.cf:
-            plt.contourf(x + 0.5, y + 0.5, z, linspace(zmin, zmax, num=dnode.clevels + 1),
-                        levels=[zmin + i * (zmax - zmin) / (dnode.clevels) for i in range(dnode.clevels + 1)], cmap=col, extend=bar_extend)
+            plt.contourf(
+                x + 0.5,
+                y + 0.5,
+                z,
+                linspace(zmin, zmax, num=dnode.clevels + 1),
+                levels=[
+                    zmin + i * (zmax - zmin) / (dnode.clevels)
+                    for i in range(dnode.clevels + 1)
+                ],
+                cmap=col,
+                extend=bar_extend,
+            )
             plt.axis([xmin + 0.5, xmax + 0.5, ymin + 0.5, ymax + 0.5])
         else:
             plt.axis([xmin - 0.5, xmax + 0.5, ymin - 0.5, ymax + 0.5])
-            plt.pcolormesh(x, y, z, cmap=col, shading='auto', vmin=zmin, vmax=zmax, edgecolors='k', linewidths=0.075, snap=True, antialiased=True)
+            plt.pcolormesh(
+                x,
+                y,
+                z,
+                cmap=col,
+                shading="auto",
+                vmin=zmin,
+                vmax=zmax,
+                edgecolors="k",
+                linewidths=0.075,
+                snap=True,
+                antialiased=True,
+            )
 
         cbar = plt.colorbar(use_gridspec=True, pad=0.01, extend=bar_extend)
         cbar.set_label(label=var, size=16)
@@ -381,29 +575,51 @@ def hmchart_disp(chart_op, plt, dnode, col):
                 if lvals:
                     ls = lvals
                 elif dnode.lvals:
-                    ls = [zmin + i * (zmax - zmin) / (dnode.clevels) for i in range(dnode.clevels + 1)][1:-1]
+                    ls = [
+                        zmin + i * (zmax - zmin) / (dnode.clevels)
+                        for i in range(dnode.clevels + 1)
+                    ][1:-1]
                 else:
-                    ls = ''
+                    ls = ""
 
-                cp = plt.contour(x + 0.5, y + 0.5, z, linspace(zmin, zmax, num=dnode.clevels), levels=ls, colors='Black', linewidths=dnode.lw)
+                cp = plt.contour(
+                    x + 0.5,
+                    y + 0.5,
+                    z,
+                    linspace(zmin, zmax, num=dnode.clevels),
+                    levels=ls,
+                    colors="Black",
+                    linewidths=dnode.lw,
+                )
                 plt.clabel(cp, inline=True, fontsize=10)
 
             except Exception:
-                cp = plt.contour(x + 0.5, y + 0.5, z, linspace(zmin, zmax, num=dnode.clevels), levels=[zmin + i * (zmax - zmin) / (dnode.clevels) for i in range(dnode.clevels + 1)][1:-1], colors='Black', linewidths=dnode.lw)
+                cp = plt.contour(
+                    x + 0.5,
+                    y + 0.5,
+                    z,
+                    linspace(zmin, zmax, num=dnode.clevels),
+                    levels=[
+                        zmin + i * (zmax - zmin) / (dnode.clevels)
+                        for i in range(dnode.clevels + 1)
+                    ][1:-1],
+                    colors="Black",
+                    linewidths=dnode.lw,
+                )
 
         if dnode.grid and dnode.cf:
-            ax.grid(True, which='both', zorder=10)
+            ax.grid(True, which="both", zorder=10)
         else:
             ax.grid(False)
 
         plt.xticks(size=14)
         plt.yticks(size=14)
 
-    plt.rcParams['axes.titlesize'] = 20
-    ax.set_title('Title', pad=15, size=20)
+    plt.rcParams["axes.titlesize"] = 20
+    ax.set_title("Title", pad=15, size=20)
     fig.tight_layout()
 
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         plt.ion()
 
     plt.show()
@@ -413,34 +629,71 @@ def ec_pie(chart_op, plt, node):
     plt.clf()
     plt.close()
     fig, ax = plt.subplots(figsize=(10, 6), subplot_kw=dict(aspect="equal"))
-    s_keys = sorted(node['res']['ec'].keys())
-    labels = [f"{k} {node['res']['ec'][k]:.1f}" for k in s_keys if k != 'All' and node['res']['ec'][k] > 0]
-    values = [node['res']['ec'][k] for k in s_keys if k != 'All' and node['res']['ec'][k] > 0]
+    s_keys = sorted(node["res"]["ec"].keys())
+    labels = [
+        f"{k} {node['res']['ec'][k]:.1f}"
+        for k in s_keys
+        if k != "All" and node["res"]["ec"][k] > 0
+    ]
+    values = [
+        node["res"]["ec"][k] for k in s_keys if k != "All" and node["res"]["ec"][k] > 0
+    ]
     fvalues = [float(v) for v in values]
     maxval = max(fvalues)
     minval = min(fvalues)
-    wedge_properties = {"width": 0.3, "edgecolor": "w", 'linewidth': 2}
-    cmap = plt.get_cmap('viridis')
-    colours = [list(cmap((fv - minval) / (maxval - minval + 0.01))[:3]) + [0.7] for fv in fvalues]
-    wedges, texts = ax.pie(values, wedgeprops=wedge_properties, startangle=0, shadow=False, colors=colours)
-    bbox_props = dict(boxstyle="round,pad=0.2,rounding_size=0.1", fc="w", ec="grey", lw=0.72)
-    kw = dict(arrowprops=dict(arrowstyle="-", ls='dashed', lw=2), bbox=bbox_props, zorder=-1, va="baseline")
+    wedge_properties = {"width": 0.3, "edgecolor": "w", "linewidth": 2}
+    cmap = plt.get_cmap("viridis")
+    colours = [
+        list(cmap((fv - minval) / (maxval - minval + 0.01))[:3]) + [0.7]
+        for fv in fvalues
+    ]
+    wedges, texts = ax.pie(
+        values, wedgeprops=wedge_properties, startangle=0, shadow=False, colors=colours
+    )
+    bbox_props = dict(
+        boxstyle="round,pad=0.2,rounding_size=0.1", fc="w", ec="grey", lw=0.72
+    )
+    kw = dict(
+        arrowprops=dict(arrowstyle="-", ls="dashed", lw=2),
+        bbox=bbox_props,
+        zorder=-1,
+        va="baseline",
+    )
 
     for i, p in enumerate(wedges):
-        ang = (p.theta2 - p.theta1) / 2. + p.theta1
+        ang = (p.theta2 - p.theta1) / 2.0 + p.theta1
         y = sin(deg2rad(ang))
         x = cos(deg2rad(ang))
         horizontalalignment = {-1: "right", 1: "left"}[int(sign(x))]
         connectionstyle = "angle,angleA=0,angleB=90,rad=10"
         kw["arrowprops"].update({"connectionstyle": connectionstyle})
 
-        ax.annotate(labels[i], xy=(x, y), xytext=(1.35 * x, 1.35 * y),
-                    horizontalalignment=horizontalalignment, verticalalignment="baseline", size=12, antialiased=True, **kw)
+        ax.annotate(
+            labels[i],
+            xy=(x, y),
+            xytext=(1.35 * x, 1.35 * y),
+            horizontalalignment=horizontalalignment,
+            verticalalignment="baseline",
+            size=12,
+            antialiased=True,
+            **kw,
+        )
 
-    ax.annotate('Total kgCO$_2$e\n{:.1f}\nTotal kgCO$_2$e/m$^2$\n{:.1f}\nTotal kgCO$_2$e/m$^2$/y\n{:.1f}'.format(float(node['res']['ec']['All']), float(node['res']['ecm2']['All']), float(node['res']['ecm2y']['All'])),
-                xy=(0, 0), xytext=(0, 0), horizontalalignment='center', va="center", size=14, antialiased=True)
+    ax.annotate(
+        "Total kgCO$_2$e\n{:.1f}\nTotal kgCO$_2$e/m$^2$\n{:.1f}\nTotal kgCO$_2$e/m$^2$/y\n{:.1f}".format(
+            float(node["res"]["ec"]["All"]),
+            float(node["res"]["ecm2"]["All"]),
+            float(node["res"]["ecm2y"]["All"]),
+        ),
+        xy=(0, 0),
+        xytext=(0, 0),
+        horizontalalignment="center",
+        va="center",
+        size=14,
+        antialiased=True,
+    )
 
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         plt.ion()
 
     plt.tight_layout(h_pad=1.5)
@@ -450,30 +703,39 @@ def ec_pie(chart_op, plt, node):
 def wlc_line(chart_op, plt, node):
     plt.clf()
     plt.close()
-    plt.style.use('bmh')
+    plt.style.use("bmh")
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     plt.subplots_adjust(bottom=0.2)
-    data = [node['res']['wl'], node['res']['ec'], node['res']['noc']]
-    xdata = [int(f[0]) for f in node['frames'] if f[0] != 'All']
-    cols = ('gold', 'turquoise', 'lime')
-    lines = ('o-', '^-', 'd-')
-    symbols = ('o', '^', 'd')
-    labels = ('Whole-life', 'Embodied', 'Operational')
+    data = [node["res"]["wl"], node["res"]["ec"], node["res"]["noc"]]
+    xdata = [int(f[0]) for f in node["frames"] if f[0] != "All"]
+    cols = ("gold", "turquoise", "lime")
+    lines = ("o-", "^-", "d-")
+    symbols = ("o", "^", "d")
+    labels = ("Whole-life", "Embodied", "Operational")
 
     for di, d in enumerate(data):
         ax.plot(xdata, list(d), lines[di], color=cols[di], alpha=0.5)
-        ax.plot(xdata, list(d), symbols[di], color='k', markerfacecolor=(0, 0, 0, 0), markeredgecolor='grey')
-        props = dict(boxstyle='round', facecolor=cols[di], alpha=0.5, edgecolor='k')
-        plt.gcf().text(0.0125 * (di + 1) * 17, 0.05, labels[di], fontsize=14, bbox=props)
+        ax.plot(
+            xdata,
+            list(d),
+            symbols[di],
+            color="k",
+            markerfacecolor=(0, 0, 0, 0),
+            markeredgecolor="grey",
+        )
+        props = dict(boxstyle="round", facecolor=cols[di], alpha=0.5, edgecolor="k")
+        plt.gcf().text(
+            0.0125 * (di + 1) * 17, 0.05, labels[di], fontsize=14, bbox=props
+        )
 
     ax.set_xticks(xdata)
-    ax.set_title('Whole-life Carbon Analysis')
-    plt.xlabel('Scenario')
-    plt.ylabel('Carbon kgCO$_2$e')
+    ax.set_title("Whole-life Carbon Analysis")
+    plt.xlabel("Scenario")
+    plt.ylabel("Carbon kgCO$_2$e")
     plt.grid(True)
 
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         plt.ion()
 
     plt.show()
@@ -482,32 +744,44 @@ def wlc_line(chart_op, plt, node):
 def com_line(chart_op, plt, node):
     plt.clf()
     plt.close()
-    plt.style.use('bmh')
+    plt.style.use("bmh")
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     plt.subplots_adjust(bottom=0.2)
-    data = [node['res']['alloh1s'], node['res']['alloh2s']] if not node.occ or not node['res'].get('allooh1s') else [node['res']['allooh1s'], node['res']['allooh2s']]
-    xdata = [int(f[0]) for f in node['frames'] if f[0] != 'All']
-    cols = ('orangered', 'gold')
-    lines = ('o-', '^-', 'd-')
-    symbols = ('o', '^', 'd')
-    labels = ('25 - 28$^o$C', '> 28$^o$C')
+    data = (
+        [node["res"]["alloh1s"], node["res"]["alloh2s"]]
+        if not node.occ or not node["res"].get("allooh1s")
+        else [node["res"]["allooh1s"], node["res"]["allooh2s"]]
+    )
+    xdata = [int(f[0]) for f in node["frames"] if f[0] != "All"]
+    cols = ("orangered", "gold")
+    lines = ("o-", "^-", "d-")
+    symbols = ("o", "^", "d")
+    labels = ("25 - 28$^o$C", "> 28$^o$C")
 
     for di, d in enumerate(data):
         ax.plot(xdata, list(d), lines[di], color=cols[di], alpha=0.5)
-        ax.plot(xdata, list(d), symbols[di], color='k', markerfacecolor=(0, 0, 0, 0), markeredgecolor='grey')
-        props = dict(boxstyle='round', facecolor=cols[di], alpha=0.5, edgecolor='k')
-        plt.gcf().text(0.0125 * (di + 1) * 17, 0.05, labels[di], fontsize=14, bbox=props)
+        ax.plot(
+            xdata,
+            list(d),
+            symbols[di],
+            color="k",
+            markerfacecolor=(0, 0, 0, 0),
+            markeredgecolor="grey",
+        )
+        props = dict(boxstyle="round", facecolor=cols[di], alpha=0.5, edgecolor="k")
+        plt.gcf().text(
+            0.0125 * (di + 1) * 17, 0.05, labels[di], fontsize=14, bbox=props
+        )
 
     ax.set_xticks(xdata)
-    ax.set_title('Over-heating Analysis')
-    plt.xlabel('Scenario')
-    occ = 'Occupied ' if node.occ and node['res'].get('allooh1s') else ''
-    plt.ylabel(f'% {occ}hours')
+    ax.set_title("Over-heating Analysis")
+    plt.xlabel("Scenario")
+    occ = "Occupied " if node.occ and node["res"].get("allooh1s") else ""
+    plt.ylabel(f"% {occ}hours")
     plt.grid(True)
 
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         plt.ion()
 
     plt.show()
-

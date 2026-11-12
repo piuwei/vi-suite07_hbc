@@ -340,7 +340,7 @@ def move_obs(s_coll, coll, t_string):
 
 
 def cmap(svp):
-    cols = retcols(ret_mcm().get_cmap(svp.vi_leg_col), svp.vi_leg_levels)
+    cols = retcols(ret_plt().get_cmap(svp.vi_leg_col), svp.vi_leg_levels)
     cols = [[col[0], col[1], col[2], 1 - svp.vi_disp_trans] for col in cols]
 
     for i in range(svp.vi_leg_levels):
@@ -520,9 +520,8 @@ class MainWindow(QMainWindow):\n\
         self.setWindowTitle('" + calctype + "')\n\
         self.setFixedWidth(350)\n\
         self.btn = QPushButton('Cancel')\n\
-        #self.connect(self.update)\n\
+        self.btn.setDefault(False)\n\
         self.btn.pressed.connect(self.stop_process)\n\
-        #self.text = QPlainTextEdit()\n\
         self.progress = QProgressBar()\n\
         self.progress.setTextVisible(False)\n\
         self.label = QLabel('Initialsing')\n\
@@ -655,6 +654,7 @@ class MainWindow(QMainWindow):\n\
         self.setWindowTitle('{}')\n\
         self.setFixedWidth(300)\n\
         self.btn = QPushButton('Cancel')\n\
+        self.btn.setDefault(False)\n\
         self.btn.pressed.connect(self.stop_process)\n\
         l = QVBoxLayout()\n\
         l.addWidget(self.btn)\n\
@@ -699,6 +699,7 @@ class MainWindow(QMainWindow):\n\
         self.setWindowTitle('OpenFOAM " + str(frame) + " Residuals')\n\
         self.setFixedWidth(370)\n\
         self.btn = QPushButton('Cancel')\n\
+        self.btn.setDefault(False)\n\
         self.btn.pressed.connect(self.stop_process)\n\
         l = QVBoxLayout()\n\
         residual = QHBoxLayout()\n\
@@ -1533,7 +1534,7 @@ def wind_compass(loc, scale, wro, mat):
     matrot = Matrix.Rotation(pi * 0.25, 4, 'Z')
     degmatrot = Matrix.Rotation(pi * 0.125, 4, 'Z')
     tmatrot = Matrix.Rotation(0, 4, 'Z')
-    direc = Vector((0, 1, 0)) 
+    direc = Vector((0, 1, 0))
 
     for i, edge in enumerate(bm.edges[-8:]):
         verts = bmesh.ops.extrude_edge_only(bm, edges=[edge], use_select_history=False)['geom'][:2]
@@ -1877,7 +1878,8 @@ def edgelen(ob, edge):
 
 
 def sunpath1(self, context):
-    sunpath(bpy.context)
+    if context.scene.vi_params.vi_display:
+        sunpath(bpy.context)
 
 
 def sunpath2():
@@ -1905,7 +1907,7 @@ def sunpath(context):
             if context.screen:
                 for a in context.screen.areas:
                     if a.type == 'VIEW_3D':
-                        a.spaces[0].shading.shadow_intensity = svp.sp_sun_strength * 0.5
+                        a.spaces[0].shading.shadow_intensity = svp.sp_sun_strength
 
             if scene.render.engine == 'CYCLES':
                 if scene.world.node_tree:
@@ -2268,7 +2270,7 @@ def sunapply(scene, sun, values, solposs, frames, sdist):
     sun.data.animation_data_clear()
     sun.animation_data_clear()
     action = bpy.data.actions.get("EnVi Sun")
-    print('hi')
+
     if action:
         bpy.data.actions.remove(action, do_unlink=True)
 
