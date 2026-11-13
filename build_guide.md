@@ -42,8 +42,19 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
   ```
 - EnergyPlus: Die mitgelieferte Binary ist für macOS repariert (rpath). Nach einem Merge mit neuer
   EnergyPlus-Version aus `master` auf einem Mac `bash build_scripts/fix_energyplus_rpath_macos.sh` ausführen.
-- Automatischer Test: `.github/workflows/macos.yml` baut und testet die Extension bei jedem Push
-  (siehe `docs/macos_plan.md`).
+- Automatischer Test: `.github/workflows/macos.yml` baut und testet die Extension (siehe `docs/macos_plan.md`).
+
+## Automatische Tests (GitHub Actions)
+
+- `.github/workflows/macos.yml` (macOS arm64) und `.github/workflows/linux.yml` (Linux x64) bauen die
+  Extension für ihre Plattform, installieren sie in Blender und führen `tests/smoke_test.py` und
+  `tests/envi_blend_test.py` aus.
+- Sie laufen bei Pushes auf `hbc_downstream` und bei PRs dorthin, nicht bei reinen Doku-Änderungen.
+- Manuell: *Actions → macOS test / Linux test → Run workflow*. Mit `upload_zip` wird die Extension als
+  Artefakt `vi-suite_HBC-<plattform>-extension` hochgeladen. Darin liegt `vi-suite_HBC-<plattform>.zip`,
+  das in Blender installiert wird.
+- Die Linux-CI baut das pyroomacoustics-Wheel selbst, weil es auf PyPI kein Linux-Wheel gibt.
+  Unter Linux braucht Blender mit PySide6 die Systembibliothek `libegl1`.
 
 ## Dependencies für VI-Suite installieren
 
