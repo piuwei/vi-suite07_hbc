@@ -52,6 +52,9 @@ MACOS_ARM64_PLATFORMS = [
 ]
 
 
+EXCLUDE_FROM_MANIFEST = {"numpy", "cython", "pybind11"}
+
+
 def build_download_command(
     env: str,
     dest_dir: str,
@@ -135,7 +138,7 @@ def main():
         WINDOWS_PLATFORMS,
         LINUX_GLIBC_PLATFORMS,
         MACOS_ARM64_PLATFORMS,
-        MACOS_X86_PLATFORMS,
+        # Blender >= 5.0 is Apple Silicon only, no macOS x86_64 wheels needed
     ]
 
     for sub_plats in all_platforms:
@@ -164,10 +167,6 @@ def main():
     run_pip_download_in_env(
         CONDA_ENV, NGSOLVE_DEST_DIR, MACOS_ARM64_PLATFORMS, pkg_str="ngsolve"
     )
-    # NGSolve MacOS X86
-    run_pip_download_in_env(
-        CONDA_ENV, NGSOLVE_DEST_DIR, MACOS_X86_PLATFORMS, pkg_str="ngsolve"
-    )
 
     # -- PYROOMACOUSTICS
     # Windows and MacOS Wheels for pyroomacoustics are available on PyPI
@@ -179,13 +178,6 @@ def main():
         CONDA_ENV,
         MAIN_DEST_DIR,
         MACOS_ARM64_PLATFORMS,
-        pkg_str="pyroomacoustics",
-    )
-    # x86
-    run_pip_download_in_env(
-        CONDA_ENV,
-        MAIN_DEST_DIR,
-        MACOS_X86_PLATFORMS,
         pkg_str="pyroomacoustics",
     )
 
@@ -206,12 +198,23 @@ def main():
     subprocess.run(pra_linux_cmd, check=True)
 
     # -- OUTPUT
-    sorted_wheels = sorted(
+    all_wheels = sorted(
         list(Path(MAIN_DEST_DIR).glob("*.whl"))
         + list(Path(NGSOLVE_DEST_DIR).glob("*.whl"))
         + list(Path(PYROOMACOUSTICS_DEST_DIR).glob("*.whl")),
         key=lambda path: path.name,
     )
+
+    # Not listed in the manifest:
+    # - numpy: Blender ships its own numpy
+    # - cython, pybind11: build-time only (declared but not imported by pyroomacoustics)
+    # - the same wheel file from several download folders
+    sorted_wheels, seen = [], set()
+    for full_path in all_wheels:
+        if full_path.name.split("-")[0].lower() in EXCLUDE_FROM_MANIFEST or full_path.name in seen:
+            continue
+        seen.add(full_path.name)
+        sorted_wheels.append(full_path)
 
     wheel_count = len(sorted_wheels)
     print(f"Downloaded {wheel_count} wheels")

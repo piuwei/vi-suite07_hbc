@@ -10,6 +10,12 @@ via ready-built blender-extensions at (OS-specific downloads):
 
 https://bwsyncandshare.kit.edu/s/w5ftGjwF2Qe4JdQ
 
+Requirements:
+
+- Blender 5.1 or newer
+- Windows x64, Linux x64 (glibc 2.28 or newer) or macOS 14 (Sonoma) or newer on Apple Silicon.
+  Intel Macs are not supported (Blender 5 runs on Apple Silicon only).
+
 ## Build-Guide
 
 see [./build_guide.md](hbc_downstream/build_guide.md)

@@ -16,9 +16,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, os, sys, inspect, multiprocessing, mathutils, bmesh, datetime, colorsys, blf, bpy_extras, math
+import bpy, os, sys, inspect, multiprocessing, mathutils, bmesh, datetime, colorsys, blf, bpy_extras, math, shutil
 from bpy_extras import mesh_utils
-from subprocess import Popen
+from subprocess import Popen, run
 from numpy import array, digitize, amax, amin, average, clip, char, int8, int16, frombuffer, uint8, multiply, float32, zeros
 from math import sin, cos, asin, acos, pi, ceil, log10
 from math import e as expo
@@ -43,6 +43,54 @@ def sys_exe():
         return sys.executable
     else:
         return os.path.join(os.path.expanduser('~'), os.path.relpath(sys.executable))
+
+
+def sys_env():
+    '''Environment for Python subprocesses started with sys_exe() (progress windows,
+    netgen meshing). Blender installs the extension wheels (PySide6, kivy, netgen ...)
+    into a separate site-packages folder that it only adds to sys.path inside Blender,
+    so pass all site-packages folders on to the child process via PYTHONPATH.'''
+    env = os.environ.copy()
+    sp = [p for p in sys.path if p.rstrip('/\\').endswith('site-packages') and os.path.isdir(p)]
+    if env.get('PYTHONPATH'):
+        sp.append(env['PYTHONPATH'])
+    if sp:
+        env['PYTHONPATH'] = os.pathsep.join(sp)
+    return env
+
+
+def ep_env():
+    '''Environment for EnergyPlus subprocesses.
+
+    On macOS the bundled energyplus binary loads @rpath/libenergyplusapi.*.dylib,
+    but its only LC_RPATH points to the upstream build directory. Passing the
+    binary's own directory via DYLD_LIBRARY_PATH (to the child process only)
+    lets dyld find the bundled library without modifying the signed binary.'''
+    env = os.environ.copy()
+
+    if sys.platform == 'darwin':
+        ep_exe = shutil.which('energyplus')
+
+        if ep_exe:
+            ep_dir = os.path.dirname(os.path.realpath(ep_exe))
+            dyld = env.get('DYLD_LIBRARY_PATH')
+            env['DYLD_LIBRARY_PATH'] = os.pathsep.join([ep_dir, dyld]) if dyld else ep_dir
+
+    return env
+
+
+def ep_check():
+    '''Run "energyplus --version". Returns (ok, message).'''
+    try:
+        res = run(['energyplus', '--version'], env=ep_env(), capture_output=True, text=True, timeout=60)
+    except Exception as e:
+        return (False, 'EnergyPlus could not be started: {}'.format(e))
+
+    if res.returncode != 0:
+        msg = (res.stderr or res.stdout).strip() or 'no output'
+        return (False, 'EnergyPlus failed to start (return code {}): {}'.format(res.returncode, msg))
+
+    return (True, res.stdout.strip())
 
 
 def li_calcob(ob, li):
@@ -579,7 +627,7 @@ QApplication.shutdown(app)"
 
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys_exe(), file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"], env=sys_env())
 
 
 def progressbar(file, calctype):
@@ -637,7 +685,7 @@ if __name__ == '__main__':\n\
 
     with open(file + ".py", 'w') as kivyfile:
         kivyfile.write(kivytext)
-    return Popen([sys_exe(), file + ".py"])
+    return Popen([sys_exe(), file + ".py"], env=sys_env())
 
 
 def cancel_window(file, pdll_path, calc_type):
@@ -678,7 +726,7 @@ QApplication.shutdown(app)".format(calc_type)
 
     with open(file + ".py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys_exe(), file + ".py"])
+    return Popen([sys_exe(), file + ".py"], env=sys_env())
 
 
 def qtfvprogress(file, pdll_path, et, residuals, frame):
@@ -778,7 +826,7 @@ QApplication.shutdown(app)"
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
 
-    return Popen([sys_exe(), file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"], env=sys_env())
 
 
 def logentry(text):

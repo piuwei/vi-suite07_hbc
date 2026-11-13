@@ -198,7 +198,7 @@ class No_Loc(Node, ViNodes):
                 self['epwtext'] = ''
 
         self['reslists'] = reslists
-        (svp.latitude, svp.longitude) = epwlatilongi(context.scene, self) if self.loc == '1' and self.weather != 'None' else (svp.latitude, svp.longitude)
+        (svp.latitude, svp.longitude) = epwlatilongi(context.scene, self) if self.loc == '1' and self.weather != 'None' and os.path.isfile(self.weather) else (svp.latitude, svp.longitude)
 
         for node in [link.to_node for link in self.outputs['Location out'].links]:
             node.nodeupdate(context)

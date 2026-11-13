@@ -65,6 +65,7 @@ from .flovi_func import fvdcpwrite, write_ffile, write_bound, fvtppwrite, fvgwri
 from .vi_func import ret_plt, logentry, rettree, cmap, fvprogressfile, cancel_window, qtfvprogress
 from .vi_func import windnum, wind_rose, create_coll, create_empty_coll, move_to_coll, retobjs, progressfile
 from .vi_func import chunks, clearlayers, clearscene, clearfiles, objmode, clear_coll, qtprogressbar, rm_coll, sys_exe
+from .vi_func import ep_env, ep_check, sys_env
 from .livi_func import retpmap
 from .auvi_func import rir2sti
 from .vi_chart import chart_disp, hmchart_disp, ec_pie, wlc_line, com_line
@@ -2374,7 +2375,7 @@ class NODE_OT_En_Sim(bpy.types.Operator):
             return {self.terminate('CANCELLED', context)}
 
         while sum([esim.poll() is None for esim in self.esimruns]) < self.processors and self.e < self.lenframes:
-            self.esimruns.append(Popen(self.esimcmds[self.e].split(), stderr=PIPE))
+            self.esimruns.append(Popen(self.esimcmds[self.e].split(), stderr=PIPE, env=self.ep_env))
             self.e += 1
 
         if event.type == 'TIMER':
@@ -2470,6 +2471,15 @@ class NODE_OT_En_Sim(bpy.types.Operator):
         if shutil.which('energyplus') is None:
             self.report({'ERROR'}, "Energyplus binary is not executable")
             return {'CANCELLED'}
+
+        ep_ok, ep_msg = ep_check()
+        logentry(ep_msg)
+
+        if not ep_ok:
+            self.report({'ERROR'}, ep_msg)
+            return {'CANCELLED'}
+
+        self.ep_env = ep_env()
 
         self.frame = svp['enparams']['fs']
         self.frames = range(svp['enparams']['fs'], svp['enparams']['fe'] + 1)
@@ -3685,7 +3695,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
             '''.format(int(svp['viparams']['nproc']), self.expnode.maxcs, 0.0, self.expnode.grading,
                        self.expnode.optimisations, self.expnode.maxsteps, svp['flparams']['offilebase'], e_maxs, refine)))
 
-        self.surf_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
+        self.surf_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE, env=sys_env())
         self.surf_cancel = cancel_window(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, 'Surface Mesh')
         self._timer = context.window_manager.event_timer_add(2, window=context.window)
         context.window_manager.modal_handler_add(self)
@@ -3753,7 +3763,7 @@ class NODE_OT_Flo_NG(bpy.types.Operator):
                            self.expnode.optimisations)))
 
             self.vol_running = 1
-            self.vol_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE)
+            self.vol_run = Popen(shlex.split('"{}" "{}"'.format(sys_exe(), os.path.join(svp['flparams']['offilebase'], 'ngpy.py'))), stdout=PIPE, stderr=PIPE, env=sys_env())
             self.vol_cancel = cancel_window(os.path.join(svp['viparams']['newdir'], 'viprogress'), pdll_path, 'Volume Mesh')
 
         if self.vol_running == 1:

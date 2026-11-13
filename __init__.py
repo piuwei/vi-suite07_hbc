@@ -83,7 +83,7 @@ else:
 
         try:
             ext_dir = Path(__file__).parent
-            netgen_wheel_dir = ext_dir / "/ngsolve_wheels"
+            netgen_wheel_dir = ext_dir / "ngsolve_wheels"
             netgen_wheels_paths = glob.glob(os.path.join(netgen_wheel_dir, "*.whl"))
 
             if not netgen_wheels_paths:
@@ -259,6 +259,20 @@ else:
         ep_path = os.path.join(addonpath, "EPFiles", sys.platform)
         rad_path = os.path.join(addonpath, "RadFiles", sys.platform, "bin")
         dar = sys.platform == "darwin"
+
+        if dar:
+            # Files unpacked from a browser download (e.g. with Finder) carry the
+            # com.apple.quarantine attribute and macOS refuses to run the bundled
+            # EnergyPlus, Radiance and OpenFOAM programs. Remove it from the
+            # add-on's own program folders only.
+            for qdir in (ep_path, os.path.join(addonpath, "RadFiles", "darwin"), os.path.join(addonpath, "OFFiles", "darwin")):
+                if os.path.isdir(qdir):
+                    try:
+                        if b"com.apple.quarantine" in subprocess.run(["xattr", "-r", qdir], capture_output=True, timeout=60).stdout:
+                            subprocess.run(["xattr", "-dr", "com.apple.quarantine", qdir], capture_output=True, timeout=120)
+                            print("VI-Suite: removed quarantine attribute from {}".format(qdir))
+                    except Exception as e:
+                        print("VI-Suite: could not check quarantine attribute of {}: {}".format(qdir, e))
 
         for fn in (
             "cnt",
