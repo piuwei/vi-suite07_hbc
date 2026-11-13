@@ -105,10 +105,10 @@ jobs:
           - Blender ${min%.0} or newer
           - \`macos-arm64\`: macOS 14 (Sonoma) or newer on Apple Silicon (no Intel Macs)
           - \`windows-x64\`: Windows 10/11 x64
-          - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04)
+          - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04 or 26.04)
 
           ## Tests
-          The three zips were built and tested in this release run with Blender ${TESTED_BLENDER} (add-on install, imports, EnergyPlus, Radiance, EnVi simulation with an example model) on macOS (Apple Silicon, \`macos-latest\`), Windows (\`windows-latest\`) and Ubuntu 24.04.
+          The three zips were built and tested in this release run with Blender ${TESTED_BLENDER} (add-on install, imports, EnergyPlus, Radiance, EnVi simulation with an example model) on macOS (Apple Silicon, \`macos-latest\`), Windows (\`windows-latest\`) and Ubuntu 24.04 and 26.04 (the Linux zip is built on 24.04).
           Older Blender versions down to the minimum version are tested with the "Blender versions" workflow.
           EOF
           sed -i 's/^          //' notes.md

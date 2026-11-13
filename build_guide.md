@@ -46,7 +46,7 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
 
 ## Automatische Tests (GitHub Actions)
 
-- `.github/workflows/macos.yml` (macOS arm64), `.github/workflows/linux.yml` (Linux x64) und
+- `.github/workflows/macos.yml` (macOS arm64), `.github/workflows/linux.yml` (Linux x64, Build auf Ubuntu 24.04, Test auf 24.04 und 26.04) und
   `.github/workflows/windows.yml` (Windows x64) bauen die Extension für ihre Plattform, installieren sie in Blender und führen `tests/smoke_test.py` und
   `tests/envi_blend_test.py` aus.
 - Sie laufen bei Pushes auf `hbc_downstream` und bei PRs dorthin, nicht bei reinen Doku-Änderungen.
@@ -74,7 +74,8 @@ wenn ein Versions-Tag gepusht wird (`.github/workflows/release.yml`):
 Ohne Tag: *Actions → Release → Run workflow* baut und testet alle Plattformen und lädt die Zips nur als
 Artefakte hoch, ohne Release.
 
-Hinweis Linux: Das pyroomacoustics-Wheel wird auf Ubuntu 24.04 gebaut und braucht glibc ≥ 2.39.
+Hinweis Linux: Das Linux-Zip (inkl. pyroomacoustics-Wheel) wird auf Ubuntu 24.04 gebaut und braucht glibc ≥ 2.39.
+Die CI testet genau dieses Zip auf Ubuntu 24.04 und 26.04.
 
 ## Dependencies für VI-Suite installieren
 

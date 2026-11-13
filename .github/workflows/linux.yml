@@ -1,12 +1,16 @@
 name: Linux test
 
-# Builds the VI-Suite HBC extension for linux-x64, installs it into Blender and runs:
+# Builds the VI-Suite HBC extension for linux-x64 on Ubuntu 24.04 (this zip is the
+# release zip), then installs exactly this zip into Blender on Ubuntu 24.04 and 26.04
+# and runs:
 #   - tests/smoke_test.py      add-on enable, imports, EnergyPlus/Radiance start,
 #                              separate Python (progress window) finds PySide6
 #   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
 #
 # pyroomacoustics has no Linux wheel on PyPI, so it is built here with Python 3.13
-# (same file name as in blender_manifest.toml).
+# (same file name as in blender_manifest.toml). It is built on the oldest supported
+# Ubuntu (24.04, glibc 2.39), because a wheel built on a newer system does not run
+# on older ones.
 
 # Same triggers as the macOS test: pushes to hbc_downstream, PRs into it,
 # no runs for documentation-only changes, manual start.
@@ -45,7 +49,8 @@ on:
         default: false
 
 jobs:
-  linux-x64:
+  build:
+    name: linux-x64 build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -59,16 +64,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-
-      - name: System packages for Blender and PySide6
-        # Without libEGL the PySide6 import fails when the add-on is enabled,
-        # and Blender then removes all extension wheels again.
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends \
-            libegl1 libgl1 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libxext6 \
-            libsm6 libice6 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
-          mkdir -p "$REPORTS"
 
       - name: Cache Blender
         id: cache-blender
@@ -89,6 +84,7 @@ jobs:
           tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
           echo "BLENDER=$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" >> "$GITHUB_ENV"
           "$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" --version
+          mkdir -p "$REPORTS"
 
       - name: Cache wheels
         uses: actions/cache@v4
@@ -118,6 +114,83 @@ jobs:
             --output-filepath dist/vi-suite_HBC-linux-x64.zip 2>&1 | tee "$REPORTS/build.log"
           ls -lh dist
 
+      - name: Hand the zip to the test jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-build-${{ env.BLENDER_VERSION }}
+          path: dist/vi-suite_HBC-linux-x64.zip
+          retention-days: 1
+          compression-level: 0
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-build-reports-${{ env.BLENDER_VERSION }}
+          path: ci-reports
+          retention-days: 14
+
+      - name: Upload extension zip
+        if: inputs.upload_zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: vi-suite_HBC-linux-x64-extension
+          path: dist/*.zip
+          retention-days: 7
+
+  test:
+    name: linux-x64 (${{ matrix.os }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      BLENDER_VERSION: ${{ inputs.blender_version || '5.3.0' }}
+      REPORTS: ${{ github.workspace }}/ci-reports
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages for Blender and PySide6
+        # Without libEGL the PySide6 import fails when the add-on is enabled,
+        # and Blender then removes all extension wheels again.
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            libegl1 libgl1 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libxext6 \
+            libsm6 libice6 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
+          mkdir -p "$REPORTS"
+          { grep PRETTY_NAME /etc/os-release; ldd --version | head -1; } | tee "$REPORTS/system.txt"
+
+      - name: Cache Blender
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/blender.tar.xz
+          key: blender-${{ env.BLENDER_VERSION }}-linux-x64
+
+      - name: Download Blender
+        if: steps.cache-blender.outputs.cache-hit != 'true'
+        run: |
+          series="${BLENDER_VERSION%.*}"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/blender.tar.xz" \
+            "https://download.blender.org/release/Blender${series}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+
+      - name: Install Blender
+        run: |
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          echo "BLENDER=$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" --version
+
+      - name: Get the zip built on Ubuntu 24.04
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x64-build-${{ env.BLENDER_VERSION }}
+          path: dist
+
       - name: Install extension
         run: |
           "$BLENDER" --command extension install-file --repo user_default --enable \
@@ -146,9 +219,12 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           import json, os
           rep = os.environ["REPORTS"]
+          sysf = os.path.join(rep, "system.txt")
+          if os.path.isfile(sysf):
+              print("**System:** " + " / ".join(l.strip() for l in open(sysf)) + "\n")
           for name in ("smoke-report.json", "envi-report.json"):
               p = os.path.join(rep, name)
               print(f"### {name}\n")
@@ -165,14 +241,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-x64-reports-${{ env.BLENDER_VERSION }}
+          name: linux-x64-${{ matrix.os }}-reports-${{ env.BLENDER_VERSION }}
           path: ci-reports
           retention-days: 14
-
-      - name: Upload extension zip
-        if: inputs.upload_zip
-        uses: actions/upload-artifact@v4
-        with:
-          name: vi-suite_HBC-linux-x64-extension
-          path: dist/*.zip
-          retention-days: 7
