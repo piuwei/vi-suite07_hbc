@@ -37,7 +37,7 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
 ### Tests und Build für alle Plattformen
 
 - [x] Linux-CI (`.github/workflows/linux.yml`, inkl. `libegl1`, ohne das der PySide6-Import scheitert und Blender alle Wheels entfernt)
-- [ ] Windows-CI (`windows-latest`): Smoke- und EnVi-Test anpassen (Pfade, `.exe`, kein `xattr`/`otool`)
+- [x] Windows-CI (`.github/workflows/windows.yml`): Smoke- und EnVi-Test laufen unverändert
 - [x] pyroomacoustics für Linux: Die Linux-CI baut das Wheel selbst (es liegt nicht auf PyPI)
 - [ ] pyroomacoustics-Wheel für Linux-Releases als manylinux-Wheel bauen (das CI-Wheel ist an die glibc
       des Ubuntu-Runners gebunden)
