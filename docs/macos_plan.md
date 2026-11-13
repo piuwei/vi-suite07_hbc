@@ -1,6 +1,6 @@
 # Plan: VI-Suite HBC auf macOS lauffähig machen
 
-Stand: 13.11.2026 (Schritte 1–7 erledigt; manueller Test auf MacBook Air M1: EnVi-Simulation und Plots ok, Qt-Fenster-Fix noch zu bestätigen; offen: PR nach `hbc_downstream`) · Branch: `hbc_downstream`
+Stand: 13.11.2026 (Schritte 1–7 erledigt; manueller Test auf MacBook Air M1: EnVi-Simulation, Plots und Qt-Fortschrittsfenster ok) · Branch: `hbc_downstream`
 
 Zielplattform: **macOS arm64 (Apple Silicon)**. Blender ab 5.0 läuft nur noch auf Apple Silicon.
 
@@ -74,8 +74,8 @@ Für private Repos zählen macOS-Minuten zehnfach.
 ### 5. macOS-Voraussetzungen dokumentieren – *erledigt (README, build_guide.md)*
 - Das scipy-Wheel braucht macOS ≥ 14, PySide6 ≥ 13, also gilt: **mindestens macOS 14 auf Apple Silicon**.
 - Die `universal2`-Wheels installiert Blender korrekt (im Runner geprüft).
-- **Offen:** Die Qt-Fenster (Fortschrittsbalken) und den modalen Simulations-Knopf auf einem echten Mac
-  prüfen. Das geht im Runner nicht.
+- Die Qt-Fenster (Fortschrittsbalken) und der Simulations-Knopf funktionieren, manuell auf einem
+  MacBook Air M1 geprüft (13.11.2026). Im Runner lässt sich das nicht testen.
 
 ### 6. Quarantäne – *erledigt*
 - Beim Laden entfernt das Add-on auf macOS `com.apple.quarantine` aus `EPFiles/darwin`, `RadFiles/darwin`
