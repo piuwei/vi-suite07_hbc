@@ -61,8 +61,6 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
 - [x] Linux-CI (`.github/workflows/linux.yml`, inkl. `libegl1`, ohne das der PySide6-Import scheitert und Blender alle Wheels entfernt)
 - [x] Windows-CI (`.github/workflows/windows.yml`): Smoke- und EnVi-Test laufen unverändert
 - [x] pyroomacoustics für Linux: Die Linux-CI baut das Wheel selbst (es liegt nicht auf PyPI)
-- [ ] pyroomacoustics-Wheel für Linux-Releases als manylinux-Wheel bauen (das CI-Wheel ist an die glibc
-      des Ubuntu-Runners gebunden)
 - [ ] `get_wheels.py` ohne Conda (nur `pip download`), damit die CI die Wheel-Liste selbst erzeugen und
       mit dem Manifest abgleichen kann
 - [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
@@ -70,8 +68,7 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
 - [x] Tests mit mehreren Blender-Versionen (5.1.2, 5.2.4, 5.3.0), siehe „Unterstützte Blender-Versionen“
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
-- [ ] Tests für LiVi (Radiance-Simulation), FloVi (netgen-Vernetzung, OpenFOAM) und AuVi (pyroomacoustics);
-      bisher prüft die CI dort nur, ob die Programme starten bzw. importierbar sind
+- [ ] Tests für LiVi (Radiance-Simulation); bisher prüft die CI nur, ob Radiance startet
 
 ### Upstream / Pflege
 
