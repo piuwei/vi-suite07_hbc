@@ -56,6 +56,25 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
 - Die Linux-CI baut das pyroomacoustics-Wheel selbst, weil es auf PyPI kein Linux-Wheel gibt.
   Unter Linux braucht Blender mit PySide6 die Systembibliothek `libegl1`.
 
+## Release
+
+Ein Release mit je einem Zip für macOS arm64, Linux x64 und Windows x64 entsteht automatisch,
+wenn ein Versions-Tag gepusht wird (`.github/workflows/release.yml`):
+
+1. `version` in `blender_manifest.toml` erhöhen (z. B. `"0.0.4"`), committen und nach `hbc_downstream` mergen.
+2. Tag auf diesen Stand setzen und pushen:
+   ```sh
+   git tag v0.0.4
+   git push origin v0.0.4
+   ```
+3. Der Workflow prüft, dass Tag und Manifest-Version übereinstimmen, baut und testet alle drei Plattformen
+   und legt das Release `v0.0.4` mit `vi-suite_HBC_v0.0.4-<plattform>.zip` an.
+
+Ohne Tag: *Actions → Release → Run workflow* baut und testet alle Plattformen und lädt die Zips nur als
+Artefakte hoch, ohne Release.
+
+Hinweis Linux: Das pyroomacoustics-Wheel wird auf Ubuntu 24.04 gebaut und braucht glibc ≥ 2.39.
+
 ## Dependencies für VI-Suite installieren
 
 ... OBSOLET

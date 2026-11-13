@@ -33,6 +33,15 @@ on:
         description: Upload the built extension zip as artifact
         type: boolean
         default: false
+  # used by release.yml
+  workflow_call:
+    inputs:
+      blender_version:
+        type: string
+        default: "5.1.2"
+      upload_zip:
+        type: boolean
+        default: false
 
 jobs:
   macos-arm64:

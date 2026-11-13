@@ -1,0 +1,107 @@
+name: Release
+
+# Builds and tests the extension for all platforms (by calling the macOS, Linux
+# and Windows test workflows) and, for a version tag, publishes a GitHub release
+# with one zip per platform.
+#
+#   git tag v0.0.4 && git push origin v0.0.4
+#
+# The tag must match `version` in blender_manifest.toml (v0.0.4 <-> "0.0.4").
+# A manual start (Actions -> Release -> Run workflow) only builds and tests and
+# uploads the zips as workflow artifacts, without creating a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      blender_version:
+        description: Blender version
+        default: "5.1.2"
+
+jobs:
+  check-version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version from manifest (and compare with tag)
+        id: version
+        run: |
+          version="$(sed -n 's/^version *= *"\(.*\)"/\1/p' blender_manifest.toml)"
+          echo "manifest version: $version"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match manifest version ${version} (expected v${version})"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: check-version
+    uses: ./.github/workflows/macos.yml
+    with:
+      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      upload_zip: true
+
+  linux:
+    needs: check-version
+    uses: ./.github/workflows/linux.yml
+    with:
+      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      upload_zip: true
+
+  windows:
+    needs: check-version
+    uses: ./.github/workflows/windows.yml
+    with:
+      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      upload_zip: true
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [check-version, macos, linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the three extension zips
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vi-suite_HBC-*-extension
+          path: dist
+          merge-multiple: true
+
+      - name: Name the zips after the version
+        run: |
+          cd dist
+          for plat in macos-arm64 linux-x64 windows-x64; do
+            mv "vi-suite_HBC-${plat}.zip" "vi-suite_HBC_v${VERSION}-${plat}.zip"
+          done
+          ls -lh
+
+      - name: Create GitHub release
+        run: |
+          cat > notes.md <<EOF
+          VI-Suite HBC ${GITHUB_REF_NAME} as a Blender extension, one zip per platform.
+          All three were built and tested (smoke test and EnVi test with EnergyPlus) in this release run.
+
+          **Installation:** Blender → Edit → Preferences → Get Extensions → Install from Disk → select the zip for your platform. Do not unpack it first
+          (Safari on macOS unpacks downloads automatically: switch off "Open safe files after downloading", or download with another browser).
+
+          **Requirements:**
+          - Blender ${{ inputs.blender_version || '5.1.2' }} (tested) or newer
+          - \`macos-arm64\`: macOS 14 (Sonoma) or newer on Apple Silicon. Intel Macs are not supported.
+          - \`windows-x64\`: Windows 10/11 x64
+          - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04). The pyroomacoustics wheel is built on Ubuntu 24.04; on older systems AuVi (acoustics) may not work.
+          EOF
+          sed -i 's/^          //' notes.md
+          gh release create "${GITHUB_REF_NAME}" dist/*.zip \
+            --title "VI-Suite HBC ${GITHUB_REF_NAME}" \
+            --notes-file notes.md \
+            --verify-tag
