@@ -81,7 +81,7 @@ Hinweis Linux: Das pyroomacoustics-Wheel wird auf Ubuntu 24.04 gebaut und brauch
 ... OBSOLET
 => Einfach blender Extension nutzen...
 
-aktueller Ablageordner: [bwsyncandshare](https://bwsyncandshare.kit.edu/f/4707870457)
+Fertige Builds gibt es nur noch über die GitHub-Releases (siehe Abschnitt „Release“).
 
 ### Ubuntu
 

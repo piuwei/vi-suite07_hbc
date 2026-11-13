@@ -6,16 +6,18 @@ Currently testing and developing on Blender 5.X.
 
 ## Installation
 
-via ready-built blender-extensions at (OS-specific downloads):
+Download the ready-built Blender extension for your platform (one zip per platform) from the
+GitHub releases of this repository:
 
-https://bwsyncandshare.kit.edu/s/w5ftGjwF2Qe4JdQ
+https://github.com/piuwei/vi-suite07_hbc/releases
 
-or from the GitHub releases of this repository (one zip per platform).
+In Blender: *Edit → Preferences → Get Extensions → Install from Disk* and select the zip
+(do not unpack it first).
 
 Requirements:
 
 - Blender 5.1 or newer (tested with 5.1.2, 5.2.4 LTS and 5.3.0)
-- Windows x64, Linux x64 (glibc 2.28 or newer) or macOS 14 (Sonoma) or newer on Apple Silicon.
+- Windows x64, Linux x64 (glibc 2.39 or newer, e.g. Ubuntu 24.04) or macOS 14 (Sonoma) or newer on Apple Silicon.
   Intel Macs are not supported (Blender 5 runs on Apple Silicon only).
 
 ## Unterstützte Blender-Versionen
