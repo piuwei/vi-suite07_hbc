@@ -38,7 +38,7 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
   `com.apple.quarantine`, und macOS blockiert dann EnergyPlus, Radiance und OpenFOAM. Das Add-on entfernt
   das Attribut beim Laden aus seinen eigenen Programmordnern. Von Hand geht es so (Pfad anpassen):
   ```sh
-  xattr -dr com.apple.quarantine ~/Library/Application\ Support/Blender/5.1/extensions/user_default/vi_suite_HBC
+  xattr -dr com.apple.quarantine ~/Library/Application\ Support/Blender/5.2/extensions/user_default/vi_suite_HBC
   ```
 - EnergyPlus: Die mitgelieferte Binary ist für macOS repariert (rpath). Nach einem Merge mit neuer
   EnergyPlus-Version aus `master` auf einem Mac `bash build_scripts/fix_energyplus_rpath_macos.sh` ausführen.
