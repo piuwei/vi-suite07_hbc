@@ -1253,7 +1253,6 @@ class VI_Params_Scene(bpy.types.PropertyGroup):
         reszof_disp,
         resmrt_disp,
         resocc_disp,
-        resort_disp,
         resh_disp,
         resfhb_disp,
         reszahw_disp,
@@ -1272,6 +1271,7 @@ class VI_Params_Scene(bpy.types.PropertyGroup):
         respvw_disp,
         respveff_disp,
         respvt_disp,
+        resort_disp,
     ) = resnameunits()
 
     (
