@@ -1,6 +1,6 @@
 # Plan: VI-Suite HBC auf macOS lauffähig machen
 
-Stand: 12.11.2026 (Schritte 1–7 erledigt, offen: manueller Test auf einem Mac, PR nach `hbc_downstream`) · Branch: `hbc_downstream`
+Stand: 13.11.2026 (Schritte 1–7 erledigt; manueller Test auf MacBook Air M1: EnVi-Simulation und Plots ok, Qt-Fenster-Fix noch zu bestätigen; offen: PR nach `hbc_downstream`) · Branch: `hbc_downstream`
 
 Zielplattform: **macOS arm64 (Apple Silicon)**. Blender ab 5.0 läuft nur noch auf Apple Silicon.
 
@@ -89,6 +89,12 @@ Für private Repos zählen macOS-Minuten zehnfach.
   jedem Verzeichnis und liest die Versionsnummer aus dem Manifest.
 
 ## Gefundene Fehler
+- Fortschrittsfenster (Qt/kivy) und die netgen-Vernetzung laufen in einem separaten Python-Prozess
+  (`sys_exe()`). Dieser sah die Wheels der Extension nicht („No module named 'PySide6'“, beim Test auf
+  einem MacBook Air M1 gefunden). Behoben mit `vi_func.sys_env()`, das die site-packages-Ordner per
+  `PYTHONPATH` weitergibt. Der Smoke-Test prüft das jetzt. Der Fehler betraf alle Plattformen.
+- Location-Node: Ohne gültige Wetterdatei wurde trotzdem versucht, sie zu öffnen (Traceback im Log).
+  Ist jetzt abgefangen.
 - `__init__.py`: Der netgen-Workaround suchte die Wheels in `/ngsolve_wheels` (Wurzelverzeichnis)
   statt im Extension-Ordner. Ist korrigiert. Ohne die Korrektur ist `netgen`/`ngsolve` nicht importierbar,
   weil das Wheel seine Pakete unter `.data/data/lib/...` ablegt und Blender diese nicht einrichtet.

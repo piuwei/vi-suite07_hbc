@@ -45,6 +45,20 @@ def sys_exe():
         return os.path.join(os.path.expanduser('~'), os.path.relpath(sys.executable))
 
 
+def sys_env():
+    '''Environment for Python subprocesses started with sys_exe() (progress windows,
+    netgen meshing). Blender installs the extension wheels (PySide6, kivy, netgen ...)
+    into a separate site-packages folder that it only adds to sys.path inside Blender,
+    so pass all site-packages folders on to the child process via PYTHONPATH.'''
+    env = os.environ.copy()
+    sp = [p for p in sys.path if p.rstrip('/\\').endswith('site-packages') and os.path.isdir(p)]
+    if env.get('PYTHONPATH'):
+        sp.append(env['PYTHONPATH'])
+    if sp:
+        env['PYTHONPATH'] = os.pathsep.join(sp)
+    return env
+
+
 def ep_env():
     '''Environment for EnergyPlus subprocesses.
 
@@ -613,7 +627,7 @@ QApplication.shutdown(app)"
 
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys_exe(), file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"], env=sys_env())
 
 
 def progressbar(file, calctype):
@@ -671,7 +685,7 @@ if __name__ == '__main__':\n\
 
     with open(file + ".py", 'w') as kivyfile:
         kivyfile.write(kivytext)
-    return Popen([sys_exe(), file + ".py"])
+    return Popen([sys_exe(), file + ".py"], env=sys_env())
 
 
 def cancel_window(file, pdll_path, calc_type):
@@ -712,7 +726,7 @@ QApplication.shutdown(app)".format(calc_type)
 
     with open(file + ".py", 'w') as qtfile:
         qtfile.write(qttext)
-    return Popen([sys_exe(), file + ".py"])
+    return Popen([sys_exe(), file + ".py"], env=sys_env())
 
 
 def qtfvprogress(file, pdll_path, et, residuals, frame):
@@ -812,7 +826,7 @@ QApplication.shutdown(app)"
     with open(file + "qt.py", 'w') as qtfile:
         qtfile.write(qttext)
 
-    return Popen([sys_exe(), file + "qt.py"])
+    return Popen([sys_exe(), file + "qt.py"], env=sys_env())
 
 
 def logentry(text):

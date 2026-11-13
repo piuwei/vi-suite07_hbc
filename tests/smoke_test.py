@@ -128,6 +128,20 @@ def check_energyplus(modname, addon_dir):
         record("ExpandObjects starts", r.returncode == 0, f"rc={r.returncode} {(r.stderr or r.stdout).strip()[:300]}")
 
 
+def check_subprocess_python(modname):
+    """Progress windows (Qt/kivy) and netgen meshing run in a separate Python process
+    (vi_func.sys_exe()). That process must find the extension wheels too."""
+    vi_func = importlib.import_module(f"{modname}.vi_func")
+    code = "import PySide6.QtWidgets, matplotlib, scipy; print('ok')"
+    cwd = tempfile.mkdtemp(prefix="vi_subproc_")  # empty dir, nothing can shadow stdlib modules
+    r = run([vi_func.sys_exe(), "-c", code], cwd=cwd)
+    record("separate Python finds PySide6 WITHOUT sys_env (info)", r.returncode == 0,
+           (r.stdout or r.stderr).strip()[-300:], fatal=False)
+    r = run([vi_func.sys_exe(), "-c", code], env=vi_func.sys_env(), cwd=cwd)
+    record("separate Python finds PySide6 with sys_env (progress window)", r.returncode == 0,
+           (r.stdout or r.stderr).strip()[-3000:])
+
+
 def check_radiance():
     exe = shutil.which("rtrace")
     if not record("rtrace on PATH", exe is not None, exe or ""):
@@ -151,6 +165,7 @@ def main():
             addon_dir = os.path.dirname(sys.modules[modname].__file__)
             check_energyplus(modname, addon_dir)
             check_radiance()
+            check_subprocess_python(modname)
     except Exception:
         record("unexpected error", False, traceback.format_exc())
 
