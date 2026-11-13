@@ -6,11 +6,24 @@ name: macOS test
 #                              (incl. EnergyPlus without DYLD_LIBRARY_PATH, i.e. rpath fix B)
 #   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
 
+# Runs on pushes to hbc_downstream and on PRs into it (not twice for a PR branch),
+# skips changes that only touch documentation, and can be started by hand
+# (Actions -> macOS test -> Run workflow), optionally uploading the extension zip.
 on:
   push:
-    branches: [hbc_downstream, "claude/**"]
+    branches: [hbc_downstream]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "Licenses/**"
   pull_request:
     branches: [hbc_downstream]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "Licenses/**"
   workflow_dispatch:
     inputs:
       blender_version:
