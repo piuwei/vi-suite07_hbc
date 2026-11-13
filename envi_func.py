@@ -284,6 +284,8 @@ def enresprops(disp):
             0,
             "resmrt{}".format(disp),
             "resocc{}".format(disp),
+            0,
+            "resort{}".format(disp),
         ),
         "2": (
             0,
