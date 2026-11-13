@@ -86,22 +86,34 @@ jobs:
           ls -lh
 
       - name: Create GitHub release
+        # Notes: fixed part below + the list of merged PRs since the previous tag
+        # (--generate-notes appends it). Edit the release afterwards on GitHub to add
+        # a short "Fixes" section by hand.
+        env:
+          TESTED_BLENDER: ${{ inputs.blender_version || '5.3.0' }}
         run: |
+          min="$(sed -n 's/^blender_version_min *= *"\(.*\)"/\1/p' blender_manifest.toml)"
           cat > notes.md <<EOF
           VI-Suite HBC ${GITHUB_REF_NAME} as a Blender extension, one zip per platform.
-          All three were built and tested (smoke test and EnVi test with EnergyPlus) in this release run.
 
-          **Installation:** Blender → Edit → Preferences → Get Extensions → Install from Disk → select the zip for your platform. Do not unpack it first
-          (Safari on macOS unpacks downloads automatically: switch off "Open safe files after downloading", or download with another browser).
+          ## Installation
+          Blender → Edit → Preferences → Get Extensions → Install from Disk → select the zip for your platform. Do not unpack it first.
 
-          **Requirements:**
-          - Blender ${{ inputs.blender_version || '5.3.0' }} (tested) or newer
-          - \`macos-arm64\`: macOS 14 (Sonoma) or newer on Apple Silicon. Intel Macs are not supported.
+          **macOS / Safari:** Safari unpacks zip files automatically. Before downloading, switch off *Safari → Settings → General → "Open 'safe' files after downloading"*, or use another browser.
+
+          ## Requirements
+          - Blender ${min%.0} or newer
+          - \`macos-arm64\`: macOS 14 (Sonoma) or newer on Apple Silicon (no Intel Macs)
           - \`windows-x64\`: Windows 10/11 x64
-          - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04). The pyroomacoustics wheel is built on Ubuntu 24.04; on older systems AuVi (acoustics) may not work.
+          - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04)
+
+          ## Tests
+          The three zips were built and tested in this release run with Blender ${TESTED_BLENDER} (add-on install, imports, EnergyPlus, Radiance, EnVi simulation with an example model) on macOS (Apple Silicon, \`macos-latest\`), Windows (\`windows-latest\`) and Ubuntu 24.04.
+          Older Blender versions down to the minimum version are tested with the "Blender versions" workflow.
           EOF
           sed -i 's/^          //' notes.md
           gh release create "${GITHUB_REF_NAME}" dist/*.zip \
             --title "VI-Suite HBC ${GITHUB_REF_NAME}" \
             --notes-file notes.md \
+            --generate-notes \
             --verify-tag
