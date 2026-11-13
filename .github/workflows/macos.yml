@@ -28,7 +28,7 @@ on:
     inputs:
       blender_version:
         description: Blender version
-        default: "5.2.4"
+        default: "5.3.0"
       upload_zip:
         description: Upload the built extension zip as artifact
         type: boolean
@@ -38,7 +38,7 @@ on:
     inputs:
       blender_version:
         type: string
-        default: "5.2.4"
+        default: "5.3.0"
       upload_zip:
         type: boolean
         default: false
@@ -48,7 +48,7 @@ jobs:
     runs-on: macos-latest   # Apple Silicon
     timeout-minutes: 60
     env:
-      BLENDER_VERSION: ${{ inputs.blender_version || '5.2.4' }}
+      BLENDER_VERSION: ${{ inputs.blender_version || '5.3.0' }}
       REPORTS: ${{ github.workspace }}/ci-reports
 
     steps:
@@ -160,7 +160,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64-reports
+          name: macos-arm64-reports-${{ env.BLENDER_VERSION }}
           path: ci-reports
           retention-days: 14
 

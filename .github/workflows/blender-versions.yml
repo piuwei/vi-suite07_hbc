@@ -1,0 +1,82 @@
+name: Blender versions
+
+# Tests the extension with several Blender versions on macOS, Linux and Windows,
+# using the same build and test steps as the per-platform workflows.
+# Started by hand when needed (Actions -> Blender versions -> Run workflow),
+# e.g. before a release or when a new Blender version comes out.
+#
+# Pull requests and pushes only test the newest version (default in
+# macos.yml / linux.yml / windows.yml). The minimum version in
+# blender_manifest.toml (blender_version_min) stays as it is until the add-on
+# actually breaks with it; see README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: Blender versions, comma separated (include the minimum version)
+        default: "5.1.2, 5.2.4, 5.3.0"
+      platforms:
+        description: Platforms, comma separated (macos, linux, windows)
+        default: "macos, linux, windows"
+
+jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    outputs:
+      versions: ${{ steps.parse.outputs.versions }}
+      macos: ${{ steps.parse.outputs.macos }}
+      linux: ${{ steps.parse.outputs.linux }}
+      windows: ${{ steps.parse.outputs.windows }}
+    steps:
+      - name: Parse inputs
+        id: parse
+        env:
+          VERSIONS: ${{ inputs.versions }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, re
+          versions = [v.strip() for v in os.environ["VERSIONS"].split(",") if v.strip()]
+          bad = [v for v in versions if not re.fullmatch(r"\d+\.\d+\.\d+", v)]
+          if bad or not versions:
+              raise SystemExit(f"invalid Blender versions: {bad or 'none'}")
+          platforms = {p.strip().lower() for p in os.environ["PLATFORMS"].split(",")}
+          print("versions=" + json.dumps(versions))
+          for p in ("macos", "linux", "windows"):
+              print(f"{p}={'true' if p in platforms else 'false'}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+  macos:
+    needs: setup
+    if: needs.setup.outputs.macos == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.setup.outputs.versions) }}
+    uses: ./.github/workflows/macos.yml
+    with:
+      blender_version: ${{ matrix.version }}
+
+  linux:
+    needs: setup
+    if: needs.setup.outputs.linux == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.setup.outputs.versions) }}
+    uses: ./.github/workflows/linux.yml
+    with:
+      blender_version: ${{ matrix.version }}
+
+  windows:
+    needs: setup
+    if: needs.setup.outputs.windows == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.setup.outputs.versions) }}
+    uses: ./.github/workflows/windows.yml
+    with:
+      blender_version: ${{ matrix.version }}
