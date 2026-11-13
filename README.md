@@ -22,7 +22,7 @@ and download the zip again.
 Requirements:
 
 - Blender 5.1 or newer (tested with 5.1.2, 5.2.4 LTS and 5.3.0)
-- Windows x64, Linux x64 (glibc 2.39 or newer, e.g. Ubuntu 24.04) or macOS 14 (Sonoma) or newer on Apple Silicon.
+- Windows x64, Linux x64 (glibc 2.39 or newer, e.g. Ubuntu 24.04 or 26.04) or macOS 14 (Sonoma) or newer on Apple Silicon.
   Intel Macs are not supported (Blender 5 runs on Apple Silicon only).
 
 ## Unterstützte Blender-Versionen
