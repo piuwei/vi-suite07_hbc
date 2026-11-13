@@ -12,6 +12,7 @@ wheel listed in the manifest really exists on PyPI.
 Usage (from the repository root):
     python3 build_scripts/ci_prepare_platform.py --platform macos-arm64
     python3 build_scripts/ci_prepare_platform.py --platform linux-x64 --skip-missing
+    python3 build_scripts/ci_prepare_platform.py --platform windows-x64
 """
 
 import argparse
@@ -22,7 +23,7 @@ import tomllib
 import urllib.request
 from pathlib import Path
 
-PLATFORMS = ("macos-arm64", "linux-x64")
+PLATFORMS = ("macos-arm64", "linux-x64", "windows-x64")
 
 
 def wheel_tags(filename):
@@ -45,6 +46,8 @@ def matches_platform(filename, platform):
         if platform == "macos-arm64" and p.startswith("macosx_") and p.endswith(("_arm64", "_universal2")):
             return True
         if platform == "linux-x64" and p.startswith(("manylinux", "linux_")) and p.endswith("_x86_64"):
+            return True
+        if platform == "windows-x64" and p == "win_amd64":
             return True
 
     return False
