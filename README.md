@@ -14,6 +14,11 @@ https://github.com/piuwei/vi-suite07_hbc/releases
 In Blender: *Edit → Preferences → Get Extensions → Install from Disk* and select the zip
 (do not unpack it first).
 
+**macOS / Safari:** Safari unpacks downloaded zip files automatically, and Blender cannot install the
+resulting folder. Before downloading, switch off *Safari → Settings → General → "Open 'safe' files
+after downloading"*, or download with another browser. If it was already unpacked, delete the folder
+and download the zip again.
+
 Requirements:
 
 - Blender 5.1 or newer (tested with 5.1.2, 5.2.4 LTS and 5.3.0)
