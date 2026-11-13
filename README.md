@@ -10,6 +10,8 @@ via ready-built blender-extensions at (OS-specific downloads):
 
 https://bwsyncandshare.kit.edu/s/w5ftGjwF2Qe4JdQ
 
+or from the GitHub releases of this repository (one zip per platform).
+
 Requirements:
 
 - Blender 5.1 or newer
@@ -43,8 +45,8 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
       des Ubuntu-Runners gebunden)
 - [ ] `get_wheels.py` ohne Conda (nur `pip download`), damit die CI die Wheel-Liste selbst erzeugen und
       mit dem Manifest abgleichen kann
-- [ ] Kompletter Build mit `build_blender_extension.sh --split-platforms` in der CI, Zips für alle Plattformen
-      als Artefakt bzw. als GitHub-Release bei einem Tag
+- [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
+      (`.github/workflows/release.yml`, siehe `build_guide.md`)
 - [ ] CI-Matrix mit weiteren Blender-Versionen (z. B. 5.2, manuell bereits auf dem Mac genutzt)
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
