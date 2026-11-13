@@ -46,11 +46,11 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
 
 ## Automatische Tests (GitHub Actions)
 
-- `.github/workflows/macos.yml` (macOS arm64) und `.github/workflows/linux.yml` (Linux x64) bauen die
-  Extension für ihre Plattform, installieren sie in Blender und führen `tests/smoke_test.py` und
+- `.github/workflows/macos.yml` (macOS arm64), `.github/workflows/linux.yml` (Linux x64) und
+  `.github/workflows/windows.yml` (Windows x64) bauen die Extension für ihre Plattform, installieren sie in Blender und führen `tests/smoke_test.py` und
   `tests/envi_blend_test.py` aus.
 - Sie laufen bei Pushes auf `hbc_downstream` und bei PRs dorthin, nicht bei reinen Doku-Änderungen.
-- Manuell: *Actions → macOS test / Linux test → Run workflow*. Mit `upload_zip` wird die Extension als
+- Manuell: *Actions → macOS test / Linux test / Windows test → Run workflow*. Mit `upload_zip` wird die Extension als
   Artefakt `vi-suite_HBC-<plattform>-extension` hochgeladen. Darin liegt `vi-suite_HBC-<plattform>.zip`,
   das in Blender installiert wird.
 - Die Linux-CI baut das pyroomacoustics-Wheel selbst, weil es auf PyPI kein Linux-Wheel gibt.

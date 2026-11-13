@@ -1,0 +1,156 @@
+name: Windows test
+
+# Builds the VI-Suite HBC extension for windows-x64, installs it into Blender and runs:
+#   - tests/smoke_test.py      add-on enable, imports, EnergyPlus/Radiance start,
+#                              separate Python (progress window) finds PySide6
+#   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
+#
+# All steps run in Git Bash (shell: bash) so the commands match the macOS/Linux workflows.
+
+# Same triggers as the macOS test: pushes to hbc_downstream, PRs into it,
+# no runs for documentation-only changes, manual start.
+on:
+  push:
+    branches: [hbc_downstream]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "Licenses/**"
+  pull_request:
+    branches: [hbc_downstream]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "Licenses/**"
+  workflow_dispatch:
+    inputs:
+      blender_version:
+        description: Blender version
+        default: "5.1.2"
+      upload_zip:
+        description: Upload the built extension zip as artifact
+        type: boolean
+        default: false
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      BLENDER_VERSION: ${{ inputs.blender_version || '5.1.2' }}
+      REPORTS: ${{ github.workspace }}/ci-reports
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: System info
+        run: |
+          systeminfo | grep -E "^OS (Name|Version)" || true
+          mkdir -p "$REPORTS"
+
+      - name: Cache Blender
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/blender.zip
+          key: blender-${{ env.BLENDER_VERSION }}-windows-x64
+
+      - name: Download Blender
+        if: steps.cache-blender.outputs.cache-hit != 'true'
+        run: |
+          series="${BLENDER_VERSION%.*}"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/blender.zip" \
+            "https://download.blender.org/release/Blender${series}/blender-${BLENDER_VERSION}-windows-x64.zip"
+
+      - name: Install Blender
+        run: |
+          7z x -y -bd "$RUNNER_TEMP/blender.zip" -o"$RUNNER_TEMP" > /dev/null
+          echo "BLENDER=$RUNNER_TEMP/blender-${BLENDER_VERSION}-windows-x64/blender.exe" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/blender-${BLENDER_VERSION}-windows-x64/blender.exe" --version
+
+      - name: Cache wheels
+        uses: actions/cache@v4
+        with:
+          path: |
+            wheels
+            ngsolve_wheels
+            pyroomacoustics_wheels
+          key: wheels-windows-x64-${{ hashFiles('blender_manifest.toml') }}
+
+      - name: Prepare windows-x64 build (filter manifest, download wheels)
+        run: python build_scripts/ci_prepare_platform.py --platform windows-x64 2>&1 | tee "$REPORTS/prepare.log"
+
+      - name: Build extension
+        run: |
+          mkdir -p dist
+          "$BLENDER" --command extension build --source-dir . \
+            --output-filepath dist/vi-suite_HBC-windows-x64.zip 2>&1 | tee "$REPORTS/build.log"
+          ls -lh dist
+
+      - name: Install extension
+        run: |
+          "$BLENDER" --command extension install-file --repo user_default --enable \
+            dist/vi-suite_HBC-windows-x64.zip 2>&1 | tee "$REPORTS/install.log"
+
+      - name: Smoke test
+        run: |
+          "$BLENDER" -b --python-exit-code 1 --python tests/smoke_test.py -- \
+            --report "$REPORTS/smoke-report.json" 2>&1 | tee "$REPORTS/smoke.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: EnVi test with simple_cube.blend
+        if: success() || failure()
+        run: |
+          work="$RUNNER_TEMP/envi"
+          mkdir -p "$work"
+          cp tests/data/simple_cube.blend "$work/"
+          set +e
+          "$BLENDER" -b "$work/simple_cube.blend" --python-exit-code 1 --python tests/envi_blend_test.py -- \
+            --report "$REPORTS/envi-report.json" 2>&1 | tee "$REPORTS/envi.log"
+          rc=${PIPESTATUS[0]}
+          mkdir -p "$REPORTS/envi-output"
+          cp "$work"/simple_cube/in*.idf "$work"/simple_cube/*out.err "$REPORTS/envi-output/" 2>/dev/null
+          exit $rc
+
+      - name: Summary
+        if: always()
+        run: |
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          rep = os.environ["REPORTS"]
+          for name in ("smoke-report.json", "envi-report.json"):
+              p = os.path.join(rep, name)
+              print(f"### {name}\n")
+              if not os.path.isfile(p):
+                  print("not written\n"); continue
+              print("| status | check | detail |\n|---|---|---|")
+              for r in json.load(open(p)):
+                  d = r["detail"].replace("|", "/").replace("\n", " ")[:300]
+                  print(f"| {r['status']} | {r['check']} | {d} |")
+              print()
+          EOF
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-reports
+          path: ci-reports
+          retention-days: 14
+
+      - name: Upload extension zip
+        if: inputs.upload_zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: vi-suite_HBC-windows-x64-extension
+          path: dist/*.zip
+          retention-days: 7
