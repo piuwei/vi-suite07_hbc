@@ -1,8 +1,10 @@
 # Scripts for building Vi-Suite HBC-Version
 
 - get_wheels.py
-  - Get required Wheels (run inside `build_scripts`, needs the conda env `CONDA_ENV`)
-  - prints the wheel list for `blender_manifest.toml`
+  - Downloads the required wheels for all platforms with `pip download` (no conda; any Python >= 3.11,
+    works from any directory) and prints the wheel list for `blender_manifest.toml`
+  - `--check`: compare with the manifest, `--write`: replace the wheel list in the manifest
+  - the Linux pyroomacoustics wheel needs Python 3.13 (`--python313 PATH`)
 - requirements.txt
   - Python Modules to get wheels for
 - build_blender_extension.sh

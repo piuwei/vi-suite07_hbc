@@ -61,18 +61,21 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
 - [x] Linux-CI (`.github/workflows/linux.yml`, inkl. `libegl1`, ohne das der PySide6-Import scheitert und Blender alle Wheels entfernt)
 - [x] Windows-CI (`.github/workflows/windows.yml`): Smoke- und EnVi-Test laufen unverändert
 - [x] pyroomacoustics für Linux: Die Linux-CI baut das Wheel selbst (es liegt nicht auf PyPI)
-- [ ] `get_wheels.py` ohne Conda (nur `pip download`), damit die CI die Wheel-Liste selbst erzeugen und
-      mit dem Manifest abgleichen kann
+- [x] `get_wheels.py` ohne Conda (nur `pip download`), mit `--check` (Abgleich mit dem Manifest) und
+      `--write` (Wheel-Liste im Manifest ersetzen)
+- [ ] Wheels aktualisieren: PyPI hat neuere Versionen (u. a. PySide6 6.12, das zusätzlich die großen Pakete
+      `pyside6_webengine`/`pyside6_pdf` mitbringt) und inzwischen ein manylinux-Wheel für pyroomacoustics 0.10.1
+      (dann läuft das Linux-Zip ab glibc 2.28, der CI-Build des Wheels entfällt)
 - [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
       (`.github/workflows/release.yml`, siehe `build_guide.md`)
 - [x] Tests mit mehreren Blender-Versionen (5.1.2, 5.2.4, 5.3.0), siehe „Unterstützte Blender-Versionen“
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
-- [ ] Tests für LiVi (Radiance-Simulation); bisher prüft die CI nur, ob Radiance startet
+- [x] Radiance-Testrechnung im Smoke-Test (oconv + rtrace, Ergebnis wird mit dem exakten Wert verglichen)
+- [ ] LiVi-Test über die Nodes (wie der EnVi-Test), braucht eine `.blend`-Datei mit LiVi-Nodes
 
 ### Upstream / Pflege
 
-- [ ] Upstream (rgsouthall) auf den absoluten rpath in der macOS-EnergyPlus-Binary hinweisen
 - [ ] Nach jedem Merge aus `master` mit neuer EnergyPlus-Version auf einem Mac
       `build_scripts/fix_energyplus_rpath_macos.sh` ausführen (die macOS-CI meldet es, falls vergessen)
 - [ ] `vi_func.py` und `vi_operators.py` nutzen CRLF-Zeilenenden, die übrigen Dateien LF: einheitlich
