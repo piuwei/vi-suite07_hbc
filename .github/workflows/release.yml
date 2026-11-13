@@ -17,7 +17,7 @@ on:
     inputs:
       blender_version:
         description: Blender version
-        default: "5.1.2"
+        default: "5.2.4"
 
 jobs:
   check-version:
@@ -41,21 +41,21 @@ jobs:
     needs: check-version
     uses: ./.github/workflows/macos.yml
     with:
-      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      blender_version: ${{ inputs.blender_version || '5.2.4' }}
       upload_zip: true
 
   linux:
     needs: check-version
     uses: ./.github/workflows/linux.yml
     with:
-      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      blender_version: ${{ inputs.blender_version || '5.2.4' }}
       upload_zip: true
 
   windows:
     needs: check-version
     uses: ./.github/workflows/windows.yml
     with:
-      blender_version: ${{ inputs.blender_version || '5.1.2' }}
+      blender_version: ${{ inputs.blender_version || '5.2.4' }}
       upload_zip: true
 
   release:
@@ -95,7 +95,7 @@ jobs:
           (Safari on macOS unpacks downloads automatically: switch off "Open safe files after downloading", or download with another browser).
 
           **Requirements:**
-          - Blender ${{ inputs.blender_version || '5.1.2' }} (tested) or newer
+          - Blender ${{ inputs.blender_version || '5.2.4' }} (tested) or newer
           - \`macos-arm64\`: macOS 14 (Sonoma) or newer on Apple Silicon. Intel Macs are not supported.
           - \`windows-x64\`: Windows 10/11 x64
           - \`linux-x64\`: x86_64 with glibc 2.39 or newer (e.g. Ubuntu 24.04). The pyroomacoustics wheel is built on Ubuntu 24.04; on older systems AuVi (acoustics) may not work.

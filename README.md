@@ -14,7 +14,7 @@ or from the GitHub releases of this repository (one zip per platform).
 
 Requirements:
 
-- Blender 5.1 or newer
+- Blender 5.1 or newer (tested in CI with 5.2.4 LTS)
 - Windows x64, Linux x64 (glibc 2.28 or newer) or macOS 14 (Sonoma) or newer on Apple Silicon.
   Intel Macs are not supported (Blender 5 runs on Apple Silicon only).
 
@@ -47,7 +47,9 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
       mit dem Manifest abgleichen kann
 - [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
       (`.github/workflows/release.yml`, siehe `build_guide.md`)
-- [ ] CI-Matrix mit weiteren Blender-Versionen (z. B. 5.2, manuell bereits auf dem Mac genutzt)
+- [x] CI auf Blender 5.2.4 LTS umgestellt (vorher 5.1.2)
+- [ ] CI-Matrix auch mit der Mindestversion aus dem Manifest (`blender_version_min`, derzeit 5.1.0)
+      oder diese auf 5.2.0 anheben
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
 - [ ] Tests für LiVi (Radiance-Simulation), FloVi (netgen-Vernetzung, OpenFOAM) und AuVi (pyroomacoustics);
