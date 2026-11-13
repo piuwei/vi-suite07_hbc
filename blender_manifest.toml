@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "vi_suite_HBC"
-version = "0.0.3"
+version = "0.0.4"
 name = "VI Suite HBC-Version"
 tagline = "Fork of vi-suite by Ryan Southall"
 maintainer = "Pius Jung <pius.jung@hochschule-bc.de>"
