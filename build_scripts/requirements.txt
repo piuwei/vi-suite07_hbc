@@ -1,4 +1,5 @@
 psutil
-PySide6
+PySide6-Essentials
 scipy
 matplotlib
+pyroomacoustics

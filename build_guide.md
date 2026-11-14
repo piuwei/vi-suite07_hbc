@@ -30,8 +30,7 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
 
 ## macOS
 
-- Voraussetzung: **macOS 14 (Sonoma) oder neuer auf Apple Silicon**. Das scipy-Wheel braucht macOS 14,
-  PySide6 macOS 13. Blender 5 läuft nicht mehr auf Intel-Macs, deshalb gibt es keinen `macos-x64`-Build.
+- Voraussetzung: **macOS 14 (Sonoma) oder neuer auf Apple Silicon**. Die scipy- und PySide6-Wheels brauchen macOS 14. Blender 5 läuft nicht mehr auf Intel-Macs, deshalb gibt es keinen `macos-x64`-Build.
 - Installation in Blender über *Edit → Preferences → Get Extensions → Install from Disk* mit dem Zip
   für `macos-arm64`. Das Zip nicht vorher im Finder entpacken.
 - Quarantäne: Dateien aus einem Browser-Download, die im Finder entpackt wurden, tragen das Attribut
@@ -54,8 +53,7 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
 - Manuell: *Actions → macOS test / Linux test / Windows test → Run workflow*. Mit `upload_zip` wird die Extension als
   Artefakt `vi-suite_HBC-<plattform>-extension` hochgeladen. Darin liegt `vi-suite_HBC-<plattform>.zip`,
   das in Blender installiert wird.
-- Die Linux-CI baut das pyroomacoustics-Wheel selbst, weil es auf PyPI kein Linux-Wheel gibt.
-  Unter Linux braucht Blender mit PySide6 die Systembibliothek `libegl1`.
+- Unter Linux braucht Blender mit PySide6 die Systembibliothek `libegl1`.
 
 ## Release
 
@@ -74,8 +72,8 @@ wenn ein Versions-Tag gepusht wird (`.github/workflows/release.yml`):
 Ohne Tag: *Actions → Release → Run workflow* baut und testet alle Plattformen und lädt die Zips nur als
 Artefakte hoch, ohne Release.
 
-Hinweis Linux: Das Linux-Zip (inkl. pyroomacoustics-Wheel) wird auf Ubuntu 24.04 gebaut und braucht glibc ≥ 2.39.
-Die CI testet genau dieses Zip auf Ubuntu 24.04 und 26.04.
+Hinweis Linux: Das Linux-Zip braucht glibc ≥ 2.34 (PySide6-Wheels sind manylinux_2_34), z. B. Ubuntu 22.04 oder neuer.
+Die CI baut es auf Ubuntu 24.04 und testet genau dieses Zip auf Ubuntu 24.04 und 26.04.
 
 ## Dependencies für VI-Suite installieren
 

@@ -2,21 +2,17 @@
 """Download the Python wheels for the VI-Suite HBC extension (no conda needed).
 
 Uses `pip download` with --platform/--python-version, so it can run with any
-Python >= 3.11 on any OS. Only the Linux pyroomacoustics wheel has to be built
-locally (there is none on PyPI); that needs a Python 3.13 interpreter.
+Python >= 3.11 on any OS. All wheels come from PyPI (pyroomacoustics has a
+manylinux wheel since 0.10.1).
 
 Usage (from anywhere):
     python3 build_scripts/get_wheels.py            # download, print wheel list
     python3 build_scripts/get_wheels.py --check    # also compare with blender_manifest.toml
     python3 build_scripts/get_wheels.py --write    # also replace the wheel list in the manifest
+    add --clean to empty the download folders first (so no old versions are listed)
 
-Options:
-    --python313 PATH   Python 3.13 used to build the Linux pyroomacoustics wheel
-                       (default: this interpreter if it is 3.13, else `python3.13` on PATH;
-                       skipped with a warning if none is found)
-
-Wheels land in wheels/, ngsolve_wheels/ and pyroomacoustics_wheels/ in the
-repository root (all git-ignored), with the same paths as in the manifest.
+Wheels land in wheels/ and ngsolve_wheels/ in the repository root (both
+git-ignored), with the same paths as in the manifest.
 """
 
 import argparse
@@ -34,7 +30,6 @@ REQUIREMENTS_FILE = Path(__file__).resolve().parent / "requirements.txt"
 
 MAIN_DIR = "wheels"
 NGSOLVE_DIR = "ngsolve_wheels"
-PYROOMACOUSTICS_DIR = "pyroomacoustics_wheels"
 
 WINDOWS_PLATFORMS = ["win_amd64"]
 LINUX_GLIBC_PLATFORMS = [
@@ -74,35 +69,10 @@ def pip_download(dest_dir, platforms, requirements=None, package=None):
     subprocess.run(cmd, check=True)
 
 
-def find_python313(explicit):
-    if explicit:
-        return explicit
-    if sys.version_info[:2] == (3, 13):
-        return sys.executable
-    return shutil.which("python3.13")
-
-
-def build_pyroomacoustics_linux(python313):
-    """pyroomacoustics has no Linux wheel on PyPI: build it (cp313, linux_x86_64)."""
-    if not sys.platform.startswith("linux"):
-        print("WARNING: the Linux pyroomacoustics wheel can only be built on Linux, skipped "
-              "(the Linux CI builds it).")
-        return
-    if not python313:
-        print("WARNING: no Python 3.13 found, Linux pyroomacoustics wheel skipped "
-              "(use --python313 PATH; the Linux CI builds it anyway).")
-        return
-    dest = ROOT / PYROOMACOUSTICS_DIR
-    dest.mkdir(exist_ok=True)
-    cmd = [python313, "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(dest), "pyroomacoustics"]
-    print("$ " + " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True)
-
-
 def wheel_list():
     """Manifest paths of all downloaded wheels, without excluded packages and duplicates."""
     found = sorted(
-        (p for d in (MAIN_DIR, NGSOLVE_DIR, PYROOMACOUSTICS_DIR) for p in (ROOT / d).glob("*.whl")),
+        (p for d in (MAIN_DIR, NGSOLVE_DIR) for p in (ROOT / d).glob("*.whl")),
         key=lambda p: (p.name.lower(), p.parent.name),
     )
     out, seen = [], set()
@@ -130,8 +100,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="compare with the wheel list in the manifest")
     ap.add_argument("--write", action="store_true", help="replace the wheel list in the manifest")
-    ap.add_argument("--python313", help="Python 3.13 for building the Linux pyroomacoustics wheel")
+    ap.add_argument("--clean", action="store_true", help="empty the download folders first")
     args = ap.parse_args()
+
+    if args.clean:
+        for d in (MAIN_DIR, NGSOLVE_DIR):
+            shutil.rmtree(ROOT / d, ignore_errors=True)
 
     for platforms in (WINDOWS_PLATFORMS, LINUX_GLIBC_PLATFORMS, MACOS_ARM64_PLATFORMS):
         pip_download(MAIN_DIR, platforms, requirements=REQUIREMENTS_FILE)
@@ -139,11 +113,6 @@ def main():
     pip_download(NGSOLVE_DIR, LINUX_GLIBC_PLATFORMS, package="mkl-service")
     for platforms in (LINUX_GLIBC_PLATFORMS, WINDOWS_PLATFORMS, MACOS_ARM64_PLATFORMS):
         pip_download(NGSOLVE_DIR, platforms, package="ngsolve")
-
-    # pyroomacoustics: wheels on PyPI for Windows and macOS, built locally for Linux
-    for platforms in (WINDOWS_PLATFORMS, MACOS_ARM64_PLATFORMS):
-        pip_download(MAIN_DIR, platforms, package="pyroomacoustics")
-    build_pyroomacoustics_linux(find_python313(args.python313))
 
     wheels = wheel_list()
     block = wheel_block(wheels)

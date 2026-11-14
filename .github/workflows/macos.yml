@@ -92,7 +92,6 @@ jobs:
           path: |
             wheels
             ngsolve_wheels
-            pyroomacoustics_wheels
           key: wheels-macos-arm64-${{ hashFiles('blender_manifest.toml') }}
 
       - name: Prepare macOS arm64 build (filter manifest, download wheels)
