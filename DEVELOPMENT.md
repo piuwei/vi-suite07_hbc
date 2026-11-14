@@ -69,7 +69,7 @@ Die Dateien behalten die Zeilenenden, die sie haben:
       im Blender-Extension-Ordner die 260-Zeichen-Grenze überschreitet; `get_wheels.py` prüft das jetzt
 - [ ] PySide6-Essentials wieder aktualisieren, sobald eine Version ohne den zu langen Windows-Pfad erscheint
 - [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
-      (`.github/workflows/release.yml`, siehe `build_guide.md`)
+      (`.github/workflows/release.yml`, siehe [build_guide.md](build_guide.md))
 - [x] Tests mit mehreren Blender-Versionen (5.1.2, 5.2.4, 5.3.0), siehe „Unterstützte Blender-Versionen“
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
