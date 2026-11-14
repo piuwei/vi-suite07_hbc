@@ -15,6 +15,7 @@ Checks (FAIL = test fails, INFO = only reported):
 import argparse
 import importlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -148,6 +149,49 @@ def check_radiance():
         return
     r = run(["rtrace", "-version"])
     record("rtrace -version", r.returncode == 0, (r.stdout or r.stderr).strip()[:300])
+    check_radiance_simulation()
+
+
+RAD_SCENE = """void glow skyglow
+0
+0
+4 1 1 1 0
+
+skyglow source sky
+0
+0
+4 0 0 1 180
+
+void plastic grey
+0
+0
+5 .5 .5 .5 0 0
+
+grey polygon floor
+0
+0
+12 -5 -5 0  5 -5 0  5 5 0  -5 5 0
+"""
+
+
+def check_radiance_simulation():
+    """Minimal LiVi-like Radiance run: oconv + rtrace irradiance under a uniform
+    sky of radiance 1. Analytically E = pi * L = pi, so the result is exact."""
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "scene.rad"), "w") as f:
+            f.write(RAD_SCENE)
+        with open(os.path.join(tmp, "scene.oct"), "wb") as oct_file:
+            r = subprocess.run(["oconv", "scene.rad"], cwd=tmp, stdout=oct_file, stderr=subprocess.PIPE, timeout=300)
+        if not record("oconv (Radiance octree)", r.returncode == 0, r.stderr.decode(errors="replace").strip()[:300] or "ok"):
+            return
+        r = run(["rtrace", "-h", "-I", "-ab", "1", "-ad", "256", "scene.oct"], cwd=tmp, input="0 0 0.1 0 0 1\n")
+        try:
+            e = float(r.stdout.split()[0])
+        except (IndexError, ValueError):
+            e = None
+        ok = r.returncode == 0 and e is not None and abs(e - math.pi) < 0.01 * math.pi
+        record("Radiance irradiance simulation (expected pi)", ok,
+               f"rc={r.returncode}, E={e}" + ("" if ok else f" {r.stderr.strip()[:300]}"))
 
 
 def main():

@@ -8,7 +8,7 @@ name: Blender versions
 # Pull requests and pushes only test the newest version (default in
 # macos.yml / linux.yml / windows.yml). The minimum version in
 # blender_manifest.toml (blender_version_min) stays as it is until the add-on
-# actually breaks with it; see README.md.
+# actually breaks with it; see DEVELOPMENT.md.
 
 on:
   workflow_dispatch:

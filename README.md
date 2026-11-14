@@ -19,64 +19,15 @@ resulting folder. Before downloading, switch off *Safari → Settings → Genera
 after downloading"*, or download with another browser. If it was already unpacked, delete the folder
 and download the zip again.
 
+User manual (not included in the extension zip): [vi07.pdf](https://github.com/piuwei/vi-suite07_hbc/blob/hbc_downstream/vi07.pdf)
+
 Requirements:
 
 - Blender 5.1 or newer (tested with 5.1.2, 5.2.4 LTS and 5.3.0)
-- Windows x64, Linux x64 (glibc 2.39 or newer, e.g. Ubuntu 24.04 or 26.04) or macOS 14 (Sonoma) or newer on Apple Silicon.
+- Windows x64, Linux x64 (glibc 2.34 or newer, e.g. Ubuntu 22.04, 24.04, 26.04) or macOS 14 (Sonoma) or newer on Apple Silicon.
   Intel Macs are not supported (Blender 5 runs on Apple Silicon only).
 
-## Unterstützte Blender-Versionen
+## Development
 
-- **Mindestversion bleibt Blender 5.1** (`blender_version_min = "5.1.0"` in `blender_manifest.toml`).
-  Sie wird erst angehoben, wenn das Add-on mit 5.1 tatsächlich Probleme macht.
-- **Getestet wird jede Version**, von der Mindestversion bis zur neuesten:
-  - Pull Requests und Pushes auf `hbc_downstream` testen nur die **neueste Blender-Version**
-    (derzeit 5.3.0, Standard in `.github/workflows/macos.yml`, `linux.yml`, `windows.yml` und `release.yml`).
-  - Alle Versionen nach Bedarf, z. B. vor einem Release oder wenn eine neue Blender-Version erscheint:
-    *Actions → Blender versions → Run workflow* (`.github/workflows/blender-versions.yml`).
-    Die Versionsliste lässt sich beim Start anpassen und sollte immer die Mindestversion enthalten.
-- Neue Blender-Version: Sie in die Standardliste von `blender-versions.yml` aufnehmen und, sobald
-  sie dort grün ist, als neue Standardversion in den vier Workflows eintragen.
-
-## Build-Guide
-
-see [./build_guide.md](hbc_downstream/build_guide.md)
-
-## TODO
-
-### Energetische Simulation mit EnVi
-
-- [x] Operative Raumtemperatur als Output ergänzen
-- [x] Zusätzliche Outputs: rdd, edd und HTML
-
-### Verteilung und Installation
-
-- [x] VI-Suite als Extension mit Wheels builden ?
-- [ ] ~~Windows Install Skript bearebiten und testen mit Download nach U:\, entpacken nach %USERPROFILE% ... damit dürfte alles dann bei wiederholter Nutzung sehr schnell gehen~~
-- [x] macOS (Apple Silicon): EnergyPlus-Start, Quarantäne, Fortschrittsfenster (siehe `docs/macos_plan.md`)
-- [x] macOS-CI: Build, Installation, Smoke-Test, EnVi-Test (`.github/workflows/macos.yml`)
-
-### Tests und Build für alle Plattformen
-
-- [x] Linux-CI (`.github/workflows/linux.yml`, inkl. `libegl1`, ohne das der PySide6-Import scheitert und Blender alle Wheels entfernt)
-- [x] Windows-CI (`.github/workflows/windows.yml`): Smoke- und EnVi-Test laufen unverändert
-- [x] pyroomacoustics für Linux: Die Linux-CI baut das Wheel selbst (es liegt nicht auf PyPI)
-- [ ] pyroomacoustics-Wheel für Linux-Releases als manylinux-Wheel bauen (das CI-Wheel ist an die glibc
-      des Ubuntu-Runners gebunden)
-- [ ] `get_wheels.py` ohne Conda (nur `pip download`), damit die CI die Wheel-Liste selbst erzeugen und
-      mit dem Manifest abgleichen kann
-- [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
-      (`.github/workflows/release.yml`, siehe `build_guide.md`)
-- [x] Tests mit mehreren Blender-Versionen (5.1.2, 5.2.4, 5.3.0), siehe „Unterstützte Blender-Versionen“
-- [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
-      `vi-suite_HBC-<plattform>-extension`)
-- [ ] Tests für LiVi (Radiance-Simulation), FloVi (netgen-Vernetzung, OpenFOAM) und AuVi (pyroomacoustics);
-      bisher prüft die CI dort nur, ob die Programme starten bzw. importierbar sind
-
-### Upstream / Pflege
-
-- [ ] Upstream (rgsouthall) auf den absoluten rpath in der macOS-EnergyPlus-Binary hinweisen
-- [ ] Nach jedem Merge aus `master` mit neuer EnergyPlus-Version auf einem Mac
-      `build_scripts/fix_energyplus_rpath_macos.sh` ausführen (die macOS-CI meldet es, falls vergessen)
-- [ ] `vi_func.py` und `vi_operators.py` nutzen CRLF-Zeilenenden, die übrigen Dateien LF: einheitlich
-      festlegen (z. B. per `.gitattributes`)
+- Development notes (tests, release, TODO list): [DEVELOPMENT.md](DEVELOPMENT.md)
+- Building the extension: [build_guide.md](build_guide.md)
