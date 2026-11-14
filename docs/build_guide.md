@@ -1,7 +1,7 @@
 # Build-Guide (Entwicklung)
 
 Anleitung für Entwickler: lokal testen, Extension bauen, Updates aus Upstream holen, Release.
-Für Nutzer siehe [README.md](README.md), für Tests, Regeln und TODOs siehe [DEVELOPMENT.md](DEVELOPMENT.md).
+Für Nutzer siehe [README.md](../README.md), für Tests, Regeln und TODOs siehe [development.md](development.md).
 
 ## 1. Lokal testen: geänderte Dateien in die installierte Extension kopieren
 
@@ -85,7 +85,7 @@ Ein Release mit je einem Zip für macOS arm64, Linux x64 und Windows x64 entsteh
 Versions-Tag gepusht wird (`.github/workflows/release.yml`).
 
 1. Vorher alle Blender-Versionen testen: *Actions → Blender versions → Run workflow*
-   (Standard: Mindestversion bis neueste Version, siehe [DEVELOPMENT.md](DEVELOPMENT.md)).
+   (Standard: Mindestversion bis neueste Version, siehe [development.md](development.md)).
 2. `version` in `blender_manifest.toml` erhöhen, per Pull Request nach `hbc_downstream` mergen.
 3. Tag auf den Merge setzen und pushen (`<version>` = Wert aus dem Manifest, z. B. `0.0.5`):
    ```sh
@@ -113,7 +113,7 @@ als Artefakte hoch.
   ```sh
   xattr -dr com.apple.quarantine ~/Library/Application\ Support/Blender/<x.y>/extensions/user_default/vi_suite_HBC
   ```
-- Hintergründe: [docs/macos_plan.md](docs/macos_plan.md)
+- Hintergründe: [macos_plan.md](macos_plan.md)
 
 **Linux**
 - Das Zip braucht glibc ≥ 2.34 (PySide6 ist manylinux_2_34), z. B. Ubuntu 22.04 oder neuer.

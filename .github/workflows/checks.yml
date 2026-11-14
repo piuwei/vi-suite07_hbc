@@ -14,5 +14,5 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Line endings unchanged (see DEVELOPMENT.md, "Zeilenenden")
+      - name: Line endings unchanged (see docs/development.md, "Zeilenenden")
         run: python3 build_scripts/check_line_endings.py "origin/${{ github.base_ref }}" HEAD

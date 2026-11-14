@@ -71,7 +71,7 @@ durch. Ausnahme: pyroomacoustics, weil das Linux-Wheel lokal gebaut wird.
 Voraussetzungen: Schreibzugriff der Claude GitHub App mit der Berechtigung `workflows`.
 Für private Repos zählen macOS-Minuten zehnfach.
 
-### 5. macOS-Voraussetzungen dokumentieren – *erledigt (README, build_guide.md)*
+### 5. macOS-Voraussetzungen dokumentieren – *erledigt (README, docs/build_guide.md)*
 - Das scipy-Wheel braucht macOS ≥ 14, PySide6 ≥ 13, also gilt: **mindestens macOS 14 auf Apple Silicon**.
 - Die `universal2`-Wheels installiert Blender korrekt (im Runner geprüft).
 - Die Qt-Fenster (Fortschrittsbalken) und der Simulations-Knopf funktionieren, manuell auf einem
@@ -82,7 +82,7 @@ Für private Repos zählen macOS-Minuten zehnfach.
   und `OFFiles/darwin`, aber nur dann, wenn das Attribut gesetzt ist.
 - Der Runner setzt das Attribut nach der Installation absichtlich, und der Smoke-Test prüft, dass es
   bei `energyplus` und `rtrace` wieder entfernt ist.
-- Der Befehl für die Entfernung von Hand steht in `build_guide.md`.
+- Der Befehl für die Entfernung von Hand steht in `docs/build_guide.md`.
 
 ### 7. Build-Skript portabel machen – *erledigt*
 - `build_blender_extension.sh` nimmt Blender aus `$BLENDER` (oder `blender` im PATH), funktioniert aus

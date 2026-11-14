@@ -29,5 +29,5 @@ Requirements:
 
 ## Development
 
-- Development notes (tests, release, TODO list): [DEVELOPMENT.md](DEVELOPMENT.md)
-- Building the extension: [build_guide.md](build_guide.md)
+- Development notes (tests, release, TODO list): [docs/development.md](docs/development.md)
+- Building the extension: [docs/build_guide.md](docs/build_guide.md)

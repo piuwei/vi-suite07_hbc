@@ -57,7 +57,7 @@ def main():
 
     for path, before, after in converted:
         print(f"::error file={path}::line endings converted ({before:.0%} -> {after:.0%} CRLF). "
-              f"Keep the file's original line endings (see DEVELOPMENT.md, 'Zeilenenden').")
+              f"Keep the file's original line endings (see docs/development.md, 'Zeilenenden').")
     print(f"checked {len(changed)} changed files, {len(converted)} with converted line endings")
     return 1 if converted else 0
 
