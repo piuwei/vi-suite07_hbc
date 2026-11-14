@@ -1,13 +1,13 @@
 # Entwicklung der VI-Suite HBC
 
 Hinweise für die Entwicklung, das Testen und das Veröffentlichen der Extension.
-Für Nutzer siehe [README.md](README.md).
+Für Nutzer siehe [README.md](../README.md).
 
 ## Überblick
 
 - **Build und Release:** siehe [build_guide.md](build_guide.md) (Extension bauen, Wheels, Release per Tag)
-- **Skripte:** siehe [build_scripts/Readme.md](build_scripts/Readme.md)
-- **macOS-Besonderheiten** (EnergyPlus-rpath, Quarantäne): siehe [docs/macos_plan.md](docs/macos_plan.md)
+- **Skripte:** siehe [build_scripts/Readme.md](../build_scripts/Readme.md)
+- **macOS-Besonderheiten** (EnergyPlus-rpath, Quarantäne): siehe [macos_plan.md](macos_plan.md)
 
 ## Tests (GitHub Actions)
 
