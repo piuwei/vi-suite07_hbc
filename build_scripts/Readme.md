@@ -5,6 +5,8 @@
     works from any directory) and prints the wheel list for `blender_manifest.toml`
   - `--check`: compare with the manifest, `--write`: replace the wheel list in the manifest
   - `--clean`: empty the download folders first, so no old versions end up in the list
+  - fails if a Windows wheel contains a path that would exceed MAX_PATH (260) in the Blender
+    extension folder
 - requirements.txt
   - Python Modules to get wheels for
 - build_blender_extension.sh

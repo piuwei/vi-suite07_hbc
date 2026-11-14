@@ -74,9 +74,9 @@ wheels = [
   "./wheels/pyroomacoustics-0.10.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
   "./wheels/pyroomacoustics-0.10.1-cp313-cp313-win_amd64.whl",
   # -- pyside6_essentials
-  "./wheels/pyside6_essentials-6.12.0-cp310-abi3-macosx_14_0_universal2.whl",
-  "./wheels/pyside6_essentials-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
-  "./wheels/pyside6_essentials-6.12.0-cp310-abi3-win_amd64.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/pyside6_essentials-6.11.0-cp310-abi3-win_amd64.whl",
   # -- python_dateutil
   "./wheels/python_dateutil-4.0.0-py3-none-any.whl",
   # -- scipy
@@ -84,9 +84,9 @@ wheels = [
   "./wheels/scipy-1.18.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
   "./wheels/scipy-1.18.1-cp313-cp313-win_amd64.whl",
   # -- shiboken6
-  "./wheels/shiboken6-6.12.0-cp310-abi3-macosx_14_0_universal2.whl",
-  "./wheels/shiboken6-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
-  "./wheels/shiboken6-6.12.0-cp310-abi3-win_amd64.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-macosx_13_0_universal2.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "./wheels/shiboken6-6.11.0-cp310-abi3-win_amd64.whl",
   # -- tbb
   "./ngsolve_wheels/tbb-2023.2.0-py2.py3-none-manylinux_2_28_x86_64.whl",
   # -- tcmlib

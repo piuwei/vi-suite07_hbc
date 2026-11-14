@@ -1,5 +1,7 @@
 psutil
-PySide6-Essentials
+# 6.11.1+ contains a file path that exceeds the Windows MAX_PATH limit inside the
+# Blender extension folder (see get_wheels.py, check_windows_paths)
+PySide6-Essentials==6.11.0
 scipy
 matplotlib
 pyroomacoustics

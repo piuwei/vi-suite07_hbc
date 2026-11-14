@@ -74,8 +74,11 @@ see [./build_guide.md](hbc_downstream/build_guide.md)
 - [x] Windows-CI (`.github/workflows/windows.yml`): Smoke- und EnVi-Test laufen unverändert
 - [x] `get_wheels.py` ohne Conda (nur `pip download`), mit `--check` (Abgleich mit dem Manifest) und
       `--write` (Wheel-Liste im Manifest ersetzen)
-- [x] Wheels aktualisiert (u. a. PySide6 6.12, pyroomacoustics 0.10.1 mit manylinux-Wheel von PyPI, kein
-      eigener Build mehr); statt `PySide6` nur `PySide6-Essentials` (QtCore/QtGui/QtWidgets), dadurch kleinere Zips
+- [x] Wheels aktualisiert (u. a. scipy 1.18, matplotlib 3.11, ngsolve 6.2.2608, pyroomacoustics 0.10.1 mit
+      manylinux-Wheel von PyPI, kein eigener Build mehr); statt `PySide6` nur `PySide6-Essentials` 6.11.0
+      (QtCore/QtGui/QtWidgets), dadurch kleinere Zips. PySide6 ab 6.11.1 enthält einen Pfad, der unter Windows
+      im Blender-Extension-Ordner die 260-Zeichen-Grenze überschreitet; `get_wheels.py` prüft das jetzt
+- [ ] PySide6-Essentials wieder aktualisieren, sobald eine Version ohne den zu langen Windows-Pfad erscheint
 - [x] Build für alle Plattformen in der CI, GitHub-Release bei einem Tag `v<version>`
       (`.github/workflows/release.yml`, siehe `build_guide.md`)
 - [x] Tests mit mehreren Blender-Versionen (5.1.2, 5.2.4, 5.3.0), siehe „Unterstützte Blender-Versionen“

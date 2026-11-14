@@ -51,6 +51,16 @@ MACOS_ARM64_PLATFORMS = [
     "macosx_14_0_arm64",
 ]
 
+# Windows: Blender unpacks the wheels into
+#   C:\Users\<user>\AppData\Roaming\Blender Foundation\Blender\<x.y>\extensions\.local\lib\python3.13\site-packages\
+# which is about 110 characters plus the user name. Paths longer than MAX_PATH (260) fail
+# to unpack, so file paths inside Windows wheels must stay below this limit, with room
+# for longer user names.
+WINDOWS_SITE_PACKAGES = (r"C:\Users\{user}\AppData\Roaming\Blender Foundation\Blender\5.3"
+                         r"\extensions\.local\lib\python3.13\site-packages" + "\\")
+WINDOWS_MAX_PATH = 260
+WINDOWS_USER_RESERVE = 20  # characters reserved for the user name
+
 # Not listed in the manifest:
 # - numpy: Blender ships its own numpy
 # - cython, pybind11: build-time only (declared but not imported by pyroomacoustics)
@@ -82,6 +92,22 @@ def wheel_list():
         seen.add(p.name)
         out.append(f"./{p.parent.name}/{p.name}")
     return out
+
+
+def check_windows_paths(wheels):
+    """Return (wheel, longest path inside, total length) for Windows wheels that would
+    exceed MAX_PATH when unpacked into the Blender extension folder."""
+    import zipfile
+    prefix = len(WINDOWS_SITE_PACKAGES.format(user="x" * WINDOWS_USER_RESERVE))
+    too_long = []
+    for w in wheels:
+        if "win_amd64" not in w:
+            continue
+        names = zipfile.ZipFile(ROOT / w).namelist()
+        longest = max(names, key=len)
+        if prefix + len(longest) >= WINDOWS_MAX_PATH:
+            too_long.append((w, longest, prefix + len(longest)))
+    return too_long
 
 
 def wheel_block(wheels):
@@ -118,6 +144,14 @@ def main():
     block = wheel_block(wheels)
     print(f"\n{len(wheels)} wheels for blender_manifest.toml:\n")
     print(block)
+
+    too_long = check_windows_paths(wheels)
+    for w, path, n in too_long:
+        print(f"\nERROR: {w}: '{path}' would be {n} characters long on Windows "
+              f"(limit {WINDOWS_MAX_PATH}, user name up to {WINDOWS_USER_RESERVE} characters). "
+              f"Pin an older version in requirements.txt.")
+    if too_long and (args.check or args.write):
+        return 1
 
     text = MANIFEST.read_text()
     current = tomllib.loads(text).get("wheels", [])
