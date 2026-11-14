@@ -49,7 +49,7 @@ BLENDER=/pfad/zu/blender bash build_scripts/build_blender_extension.sh
   `.github/workflows/windows.yml` (Windows x64) bauen die Extension für ihre Plattform, installieren sie in Blender und führen `tests/smoke_test.py` und
   `tests/envi_blend_test.py` aus.
 - Sie laufen bei Pushes auf `hbc_downstream` und bei PRs dorthin, nicht bei reinen Doku-Änderungen.
-- Mehrere Blender-Versionen: *Actions → Blender versions → Run workflow* (siehe README).
+- Mehrere Blender-Versionen: *Actions → Blender versions → Run workflow* (siehe DEVELOPMENT.md).
 - Manuell: *Actions → macOS test / Linux test / Windows test → Run workflow*. Mit `upload_zip` wird die Extension als
   Artefakt `vi-suite_HBC-<plattform>-extension` hochgeladen. Darin liegt `vi-suite_HBC-<plattform>.zip`,
   das in Blender installiert wird.
