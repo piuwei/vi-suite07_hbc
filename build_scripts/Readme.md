@@ -4,7 +4,7 @@
   - Downloads the required wheels for all platforms with `pip download` (no conda; any Python >= 3.11,
     works from any directory) and prints the wheel list for `blender_manifest.toml`
   - `--check`: compare with the manifest, `--write`: replace the wheel list in the manifest
-  - the Linux pyroomacoustics wheel needs Python 3.13 (`--python313 PATH`)
+  - `--clean`: empty the download folders first, so no old versions end up in the list
 - requirements.txt
   - Python Modules to get wheels for
 - build_blender_extension.sh
@@ -16,3 +16,5 @@
   - run on a Mac after a new EnergyPlus binary was merged from master
 - ci_prepare_platform.py
   - used by the CI runner: single-platform build with the wheels from the manifest
+- check_line_endings.py
+  - fails if a change converts the line endings of a whole file (used by `.github/workflows/checks.yml`)
