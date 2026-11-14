@@ -19,6 +19,8 @@ resulting folder. Before downloading, switch off *Safari → Settings → Genera
 after downloading"*, or download with another browser. If it was already unpacked, delete the folder
 and download the zip again.
 
+User manual (not included in the extension zip): [vi07.pdf](https://github.com/piuwei/vi-suite07_hbc/blob/hbc_downstream/vi07.pdf)
+
 Requirements:
 
 - Blender 5.1 or newer (tested with 5.1.2, 5.2.4 LTS and 5.3.0)

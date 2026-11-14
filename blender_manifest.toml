@@ -120,4 +120,5 @@ paths_exclude_pattern = [
   "/docs/",
   "/dist/",
   "/.github/",
+  "/vi07.pdf",
 ]
