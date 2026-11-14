@@ -22,8 +22,8 @@ if [ -z "$BLENDER" ] || [ ! -x "$BLENDER" ]; then
     exit 1
 fi
 
-# extension version from the manifest, e.g. version = "0.0.3" -> v003
-VERSION="v$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$REPO/blender_manifest.toml" | tr -d '.')"
+# extension version from the manifest, e.g. version = "0.0.5" -> v0.0.5 (same as the release tag)
+VERSION="v$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$REPO/blender_manifest.toml")"
 BLENDER_VERSION="$("$BLENDER" --version | sed -n 's/^Blender \([0-9.]*\).*/\1/p' | head -1)"
 OUT_DIR="${OUT_DIR:-$REPO/assets/blender_extensions/Blender-$BLENDER_VERSION}"
 
