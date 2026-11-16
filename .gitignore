@@ -23,3 +23,7 @@ pyroomacoustics_wheels/
 
 site-packages/
 Python/
+
+tests/data/simple_cube
+tests/data/simple_cube_livi
+*.blend1

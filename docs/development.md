@@ -75,7 +75,8 @@ Die Dateien behalten die Zeilenenden, die sie haben:
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
 - [x] Radiance-Testrechnung im Smoke-Test (oconv + rtrace, Ergebnis wird mit dem exakten Wert verglichen)
-- [ ] LiVi-Test über die Nodes (wie der EnVi-Test), braucht eine `.blend`-Datei mit LiVi-Nodes
+- [x] LiVi-Test über die Nodes: `tests/livi_blend_test.py` mit `tests/data/simple_cube_livi.blend`
+      (Beleuchtungsstärke auf einem 5 × 5-Messraster, Vergleich mit Referenzwert ±30 %)
 
 ### Upstream / Pflege
 
