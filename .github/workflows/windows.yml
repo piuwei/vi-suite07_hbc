@@ -4,6 +4,7 @@ name: Windows test
 #   - tests/smoke_test.py      add-on enable, imports, EnergyPlus/Radiance start,
 #                              separate Python (progress window) finds PySide6
 #   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
+#   - tests/livi_blend_test.py LiVi export + Radiance run with tests/data/simple_cube_livi.blend
 #
 # All steps run in Git Bash (shell: bash) so the commands match the macOS/Linux workflows.
 
@@ -129,13 +130,24 @@ jobs:
           cp "$work"/simple_cube/in*.idf "$work"/simple_cube/*out.err "$REPORTS/envi-output/" 2>/dev/null
           exit $rc
 
+      - name: LiVi test with simple_cube_livi.blend
+        if: success() || failure()
+        run: |
+          work="$RUNNER_TEMP/livi"
+          mkdir -p "$work"
+          cp tests/data/simple_cube_livi.blend "$work/"
+          set +e
+          "$BLENDER" -b "$work/simple_cube_livi.blend" --python-exit-code 1 --python tests/livi_blend_test.py -- \
+            --report "$REPORTS/livi-report.json" 2>&1 | tee "$REPORTS/livi.log"
+          exit ${PIPESTATUS[0]}
+
       - name: Summary
         if: always()
         run: |
           python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           import json, os
           rep = os.environ["REPORTS"]
-          for name in ("smoke-report.json", "envi-report.json"):
+          for name in ("smoke-report.json", "envi-report.json", "livi-report.json"):
               p = os.path.join(rep, name)
               print(f"### {name}\n")
               if not os.path.isfile(p):

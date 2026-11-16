@@ -13,7 +13,7 @@ Für Nutzer siehe [README.md](../README.md).
 
 | Workflow | Wann | Was |
 |---|---|---|
-| `macos.yml`, `linux.yml`, `windows.yml` | Pull Requests und Pushes auf `hbc_downstream` (nicht bei reinen Doku-Änderungen), manuell | Extension bauen, installieren, `tests/smoke_test.py` und `tests/envi_blend_test.py` mit der neuesten Blender-Version. Linux: Build auf Ubuntu 24.04, Test desselben Zips auf 24.04 und 26.04 |
+| `macos.yml`, `linux.yml`, `windows.yml` | Pull Requests und Pushes auf `hbc_downstream` (nicht bei reinen Doku-Änderungen), manuell | Extension bauen, installieren, `tests/smoke_test.py`, `tests/envi_blend_test.py` und `tests/livi_blend_test.py` mit der neuesten Blender-Version. Linux: Build auf Ubuntu 24.04, Test desselben Zips auf 24.04 und 26.04 |
 | `blender-versions.yml` | manuell | dieselben Tests für eine Liste von Blender-Versionen |
 | `checks.yml` | Pull Requests | Zeilenenden (siehe unten) |
 | `release.yml` | Tag `v<version>`, manuell | alle Plattformen bauen und testen, GitHub-Release anlegen |
@@ -74,7 +74,8 @@ Die Dateien behalten die Zeilenenden, die sie haben:
 - [x] Extension-Zip und CI-Artefakt eindeutig benennen (`vi-suite_HBC-<plattform>.zip` im Artefakt
       `vi-suite_HBC-<plattform>-extension`)
 - [x] Radiance-Testrechnung im Smoke-Test (oconv + rtrace, Ergebnis wird mit dem exakten Wert verglichen)
-- [ ] LiVi-Test über die Nodes (wie der EnVi-Test), braucht eine `.blend`-Datei mit LiVi-Nodes
+- [x] LiVi-Test über die Nodes: `tests/livi_blend_test.py` mit `tests/data/simple_cube_livi.blend`
+      (Beleuchtungsstärke auf einem 5 × 5-Messraster, Vergleich mit Referenzwert ±30 %)
 
 ### Upstream / Pflege
 
