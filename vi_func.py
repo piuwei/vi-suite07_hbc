@@ -2042,6 +2042,28 @@ def epentry(header, params, paramvs):
                                                                                                                                pv[1], width=80 + (0, 4)[header == '']) for pv in zip(paramvs, params)]) + ('\n\n', '')[header == '']
 
 
+def epw_ground_temps(epw):
+    """Monthly undisturbed ground temperatures from the GROUND TEMPERATURES header line of an EPW file.
+    Returns {depth in m: [12 values in degC]}, empty if the file has none."""
+    with open(epw, "r", encoding="latin-1") as epwfile:
+        for _ in range(8):
+            line = epwfile.readline()
+
+            if line.upper().startswith("GROUND TEMPERATURES"):
+                f = [v.strip() for v in line.split(",")]
+                temps = {}
+
+                try:
+                    for i in range(int(f[1])):
+                        block = f[2 + i * 16: 2 + (i + 1) * 16]
+                        temps[float(block[0])] = [float(v) for v in block[4:16]]
+                except (IndexError, ValueError):
+                    pass
+
+                return temps
+    return {}
+
+
 def epwlatilongi(scene, node):
     with open(node.weather, "r") as epwfile:
         fl = epwfile.readline()

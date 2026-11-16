@@ -18,7 +18,7 @@
 
 import bpy, os, subprocess, datetime, shutil, mathutils, bmesh
 # from bpy_extras import mesh_utils
-from .vi_func import selobj, create_coll, selobs, logentry, epentry, meshes_to_solids, solid_to_mesh, rm_coll
+from .vi_func import selobj, create_coll, selobs, logentry, epentry, meshes_to_solids, solid_to_mesh, rm_coll, epw_ground_temps
 from .envi_func import get_con_node, boundpoly, get_zone_node, ret_areas, epschedwrite
 
 try:
@@ -41,6 +41,31 @@ caodict = {"0": "", "1": "SimpleCombined", "2": "TARP", "3": "DOE-2", "4": "MoWi
 #                 for emnode in ob.data.material_slots[face.material_index].material.envi_nodes:
 #                     if emnode.bl_idname == 'No_En_Mat_Con' and emnode.active:
 #                         mat_co2e += face.area * emnode['ecm2']
+
+
+def write_ground_temps(exp_op, en_idf, node, locnode):
+    """Write Site:GroundTemperature:BuildingSurface from the EnVi Context ground settings.
+    Without it EnergyPlus uses a constant 18 degC under ground-contact surfaces."""
+    mode = getattr(node, 'ground_mode', '2')
+
+    if mode == '0':
+        temps = epw_ground_temps(locnode.weather)
+
+        if not temps:
+            exp_op.report({'WARNING'}, 'Weather file has no ground temperatures, EnergyPlus default (18 degC) is used')
+            return
+
+        depth = min(temps, key=lambda d: abs(d - float(node.ground_depth)))
+        values = temps[depth]
+        en_idf.write('!- Ground temperatures from the weather file at {} m depth\n'.format(depth))
+    elif mode == '1':
+        values = [node.ground_temp] * 12
+    else:
+        return
+
+    months = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+    en_idf.write(epentry('Site:GroundTemperature:BuildingSurface', ['{} Ground Temperature (C)'.format(m) for m in months],
+                         ['{:.2f}'.format(v) for v in values]))
 
 
 def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
@@ -93,6 +118,7 @@ def enpolymatexport(exp_op, geo_coll, node, locnode, em, ec):
                   'Use Weather File Rain Indicators', 'Use Weather File Snow Indicators')
         paramvs = ((node.loc, 'Default')[not node.loc], node.sdate.month, node.sdate.day, '', node.edate.month, node.edate.day, '', "", "Yes", "Yes", "No", "Yes", "Yes")
         en_idf.write(epentry('RunPeriod', params, paramvs))
+        write_ground_temps(exp_op, en_idf, node, locnode)
 
         en_idf.write("!-   ===========  ALL OBJECTS IN CLASS: MATERIAL & CONSTRUCTIONS ===========\n\n")
 

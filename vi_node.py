@@ -1793,7 +1793,7 @@ class No_En_Con(Node, ViNodes):
 
     def nodeupdate(self, context):
         context.scene.vi_params.vi_nodes = self.id_data
-        nodecolour(self, self['exportstate'] != [str(x) for x in (self.loc, self.terrain, self.timesteps, self.animated, self.fs, self.fe, self.sdoy, self.edoy)])
+        nodecolour(self, self['exportstate'] != [str(x) for x in (self.loc, self.terrain, self.timesteps, self.animated, self.fs, self.fe, self.sdoy, self.edoy, self.ground_mode, self.ground_depth, self.ground_temp)])
 
     animated: BoolProperty(name="", description="Animated analysis", update=nodeupdate)
     idf_extended_outputs: BoolProperty(name="", description="Add Outputs to IDF:\nOutput:EnergyManagementSystem, Verbose, Verbose, ErrorsOnly;\nOutput:Diagnostics,DisplayExtrawarnings;\nOutput:VariableDictionary, IDF;\nOutputControl:Table:Style, HTML;", update=nodeupdate, default=True)
@@ -1807,6 +1807,14 @@ class No_En_Con(Node, ViNodes):
     solar: EnumProperty(items=[("0", "MinimalShadowing", ""), ("1", "FullExterior", ""), ("2", "FullInteriorAndExterior", ""),
                                ("3", "FullExteriorWithReflections", ""), ("4", "FullInteriorAndExteriorWithReflections", "")],
                         name="", description="Solar calcs", default="2", update=nodeupdate)
+    ground_mode: EnumProperty(items=[("0", "Weather file", "Monthly ground temperatures from the weather file"),
+                                     ("1", "Constant", "One constant ground temperature for the whole year"),
+                                     ("2", "EnergyPlus default", "Write nothing; EnergyPlus uses a constant 18 degC")],
+                              name="", description="Temperature of the ground under ground-contact surfaces", default="1", update=nodeupdate)
+    ground_depth: EnumProperty(items=[("0.5", "0.5 m", "Ground temperatures at 0.5 m depth"), ("2", "2 m", "Ground temperatures at 2 m depth"),
+                                      ("4", "4 m", "Ground temperatures at 4 m depth")],
+                               name="", description="Depth of the weather file ground temperatures (nearest available depth is used)", default="2", update=nodeupdate)
+    ground_temp: FloatProperty(name="", description="Constant ground temperature (degC). EnergyPlus recommends about 2 K below the indoor temperature for ground under conditioned buildings", min=-20, max=40, default=18, update=nodeupdate)
     addonpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
     matpath = addonpath + '/EPFiles/Materials/Materials.data'
     sdoy: IntProperty(name="", description="Start day of simulation", min=1, max=365, default=1, update=nodeupdate)
@@ -1882,6 +1890,13 @@ class No_En_Con(Node, ViNodes):
         row.label(text='Exposure:')
         col = row.column()
         col.prop(self, "terrain")
+        newrow(layout, 'Ground temp:', self, "ground_mode")
+
+        if self.ground_mode == '0':
+            newrow(layout, 'Ground depth:', self, "ground_depth")
+        elif self.ground_mode == '1':
+            newrow(layout, 'Ground (degC):', self, "ground_temp")
+
         newrow(layout, 'Start day {}/{}:'.format(sdate.day, sdate.month), self, "sdoy")
         newrow(layout, 'End day {}/{}:'.format(edate.day, edate.month), self, "edoy")
         newrow(layout, 'Time-steps/hour', self, "timesteps")
@@ -1917,7 +1932,7 @@ class No_En_Con(Node, ViNodes):
 
     def postexport(self):
         nodecolour(self, 0)
-        self['exportstate'] = [str(x) for x in (self.loc, self.terrain, self.timesteps, self.animated, self.fs, self.fe, self.sdoy, self.edoy)]
+        self['exportstate'] = [str(x) for x in (self.loc, self.terrain, self.timesteps, self.animated, self.fs, self.fe, self.sdoy, self.edoy, self.ground_mode, self.ground_depth, self.ground_temp)]
 
 
 class No_En_Sim(Node, ViNodes):

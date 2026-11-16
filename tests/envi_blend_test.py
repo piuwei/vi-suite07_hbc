@@ -173,6 +173,12 @@ def main():
     if not record("IDF written", all(os.path.isfile(i) for i in idfs), idfs):
         return
 
+    # The EnVi Context node writes ground temperatures unless set to the EnergyPlus default
+    if getattr(con, 'ground_mode', '2') != '2':
+        idf = open(idfs[0]).read()
+        record("ground temperatures in IDF", "Site:GroundTemperature:BuildingSurface" in idf,
+               f"mode {con.ground_mode}, depth {con.ground_depth} m, constant {con.ground_temp} degC")
+
     expand = "-x" if svp['viparams'].get('hvactemplate') else ""
     resname = sim.resname or 'eplus'
     env = vi_func.ep_env()
