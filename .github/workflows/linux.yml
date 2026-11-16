@@ -6,6 +6,7 @@ name: Linux test
 #   - tests/smoke_test.py      add-on enable, imports, EnergyPlus/Radiance start,
 #                              separate Python (progress window) finds PySide6
 #   - tests/envi_blend_test.py EnVi export + EnergyPlus run with tests/data/simple_cube.blend
+#   - tests/livi_blend_test.py LiVi export + Radiance run with tests/data/simple_cube_livi.blend
 #
 # All wheels come from PyPI as listed in blender_manifest.toml; the Linux zip needs
 # glibc >= 2.34 (PySide6 is manylinux_2_34).
@@ -203,6 +204,17 @@ jobs:
           cp "$work"/simple_cube/in*.idf "$work"/simple_cube/*out.err "$REPORTS/envi-output/" 2>/dev/null
           exit $rc
 
+      - name: LiVi test with simple_cube_livi.blend
+        if: success() || failure()
+        run: |
+          work="$RUNNER_TEMP/livi"
+          mkdir -p "$work"
+          cp tests/data/simple_cube_livi.blend "$work/"
+          set +e
+          "$BLENDER" -b "$work/simple_cube_livi.blend" --python-exit-code 1 --python tests/livi_blend_test.py -- \
+            --report "$REPORTS/livi-report.json" 2>&1 | tee "$REPORTS/livi.log"
+          exit ${PIPESTATUS[0]}
+
       - name: Summary
         if: always()
         run: |
@@ -212,7 +224,7 @@ jobs:
           sysf = os.path.join(rep, "system.txt")
           if os.path.isfile(sysf):
               print("**System:** " + " / ".join(l.strip() for l in open(sysf)) + "\n")
-          for name in ("smoke-report.json", "envi-report.json"):
+          for name in ("smoke-report.json", "envi-report.json", "livi-report.json"):
               p = os.path.join(rep, name)
               print(f"### {name}\n")
               if not os.path.isfile(p):
