@@ -3,7 +3,7 @@
 TMYx 2011–2025 files (typical meteorological years from the 2011–2025 period)
 from https://climate.onebuilding.org, picked to cover a wide range of climates.
 
-| File | Climate (Köppen) | Tmean °C | Tmin / Tmax °C | GHI kWh/m²a | HDD18 | CDD18 |
+| File | Climate (Köppen) | Tmean °C | Tmin / Tmax °C | GHI kWh/m²a | HDD18 (heating) | CDD18 (cooling) |
 |---|---|---|---|---|---|---|
 | DEU_SH_Kiel.Holtenau.AP | Cfb, maritime N-Germany | 9.8 | -9.0 / 30.0 | 1081 | 3113 | 112 |
 | DEU_BE_Berlin-Dahlem* | Cfb/Dfb, continental-ish | 10.8 | -9.2 / 36.9 | 1122 | 2940 | 301 |
@@ -21,4 +21,15 @@ from https://climate.onebuilding.org, picked to cover a wide range of climates.
 \* Built from ERA5 reanalysis rather than station measurements (source field `ERA5-TMYx` in the header).
 
 The statistics were computed from the hourly dry-bulb temperature and global horizontal irradiance.
-Degree-days use an 18 °C base.
+
+**Column meanings**
+
+- **Tmean / Tmin / Tmax**: annual mean, lowest and highest hourly outdoor air temperature.
+- **GHI**: annual global horizontal irradiance, i.e. total solar energy falling on a horizontal surface.
+- **HDD18 (heating degree days, base 18 °C)**: indicates how much heating a location needs.
+  For each day, the amount by which the outdoor temperature is below 18 °C is summed over the year.
+  Example: one day at 8 °C contributes 10 K·d. Higher value = colder climate, more heating demand.
+- **CDD18 (cooling degree days, base 18 °C)**: the same in the other direction. The amount by which
+  the outdoor temperature is above 18 °C is summed over the year. Higher value = more cooling demand.
+
+Degree days here are calculated from hourly values (sum of hourly differences / 24), unit K·d.
