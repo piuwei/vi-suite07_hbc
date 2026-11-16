@@ -4,14 +4,14 @@
 # Needs the wheels (get_wheels.py) and blender_manifest.toml.
 # Blender is taken from $BLENDER, else from "blender" on the PATH.
 #
-#   BLENDER=~/simulationssoftware/blender-5.1.2-linux-x64/blender bash build_scripts/build_blender_extension.sh
+#   BLENDER=/path/to/blender-5.3.0-linux-x64/blender bash build_scripts/build_blender_extension.sh
 #   BLENDER=/Applications/Blender.app/Contents/MacOS/Blender bash build_scripts/build_blender_extension.sh
 #
 # Optional: OUT_DIR (default: <repo>/assets/blender_extensions/Blender-<blender version>)
-
-## might help to install in conda / python venv:
-# pip install pyroomacoustics
-# pip install ngsolve
+#
+# Note: --split-platforms only filters the wheels. Unlike the CI build
+# (ci_prepare_platform.py), each zip still contains the EPFiles/RadFiles/OFFiles
+# folders of all platforms.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
