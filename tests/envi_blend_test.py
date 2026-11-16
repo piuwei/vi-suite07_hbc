@@ -95,6 +95,25 @@ def set_weather(modname, loc, weather):
     return record("weather file", os.path.isfile(loc.weather), loc.weather)
 
 
+def report_warnings(frame, err, limit=15):
+    """List EnergyPlus warnings from the .err text (informational, does not fail the test).
+    A warning is the '** Warning **' line plus its '**   ~~~   **' continuation lines."""
+    warnings, cur = [], None
+    for line in err.splitlines():
+        s = line.strip()
+        if s.startswith("** Warning **"):
+            cur = [s[len("** Warning **"):].strip()]
+            warnings.append(cur)
+        elif cur is not None and s.startswith("**   ~~~   **"):
+            cur.append(s[len("**   ~~~   **"):].strip())
+        else:
+            cur = None
+    text = "\n".join(" | ".join(w) for w in warnings[:limit])
+    more = f"\n... {len(warnings) - limit} more, see the .err file" if len(warnings) > limit else ""
+    record(f"EnergyPlus frame {frame} warnings", False, f"{len(warnings)} warnings" +
+           (f"\n{text}{more}" if warnings else ""), fatal=False)
+
+
 def run_op(label, op, node):
     try:
         with bpy.context.temp_override(node=node):
@@ -174,6 +193,7 @@ def main():
                f"cmd: {' '.join(cmd)} | rc={r.returncode} | err {'written' if err else 'MISSING'} | "
                f"eso {'written' if os.path.isfile(esof) else 'MISSING'} | {summary}"
                + ("" if ok else "\n" + "\n".join(severe or [(r.stderr or r.stdout)[-2000:]])))
+        report_warnings(f, err)
 
     record("output files", True, sorted(os.path.basename(p) for p in glob.glob(os.path.join(newdir, f"{resname}*"))), fatal=False)
 
