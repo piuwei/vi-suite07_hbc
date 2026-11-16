@@ -113,7 +113,7 @@ def check_energyplus(modname, addon_dir):
     if not ok:
         return
 
-    epw = os.path.join(addon_dir, "EPFiles", "Weather", "GBR_Birmingham.035340_IWEC.epw")
+    epw = os.path.join(addon_dir, "EPFiles", "Weather", "DEU_BW_Stuttgart.AP.107380_TMYx.2011-2025.epw")
     with tempfile.TemporaryDirectory() as tmp:
         shutil.copy(os.path.join(HERE, "data", "mini.idf"), os.path.join(tmp, "in.idf"))
         r = run(["energyplus", "-w", epw, "-p", "results0", "in.idf"], cwd=tmp, env=vi_func.ep_env())
