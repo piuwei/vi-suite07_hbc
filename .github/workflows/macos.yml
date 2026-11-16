@@ -8,11 +8,15 @@ name: macOS test
 #   - tests/livi_blend_test.py LiVi export + Radiance run with tests/data/simple_cube_livi.blend
 
 # Runs only when needed (Linux covers every PR):
+# - nightly at 02:23 UTC (default branch, newest Blender)
 # - releases (called by release.yml) and blender-versions.yml
 # - by hand (Actions -> macOS test -> Run workflow), optionally uploading the extension zip
 # - on PRs into hbc_downstream that carry the label "full-ci" (adding the label starts
 #   it, later pushes to the PR run it again); skips documentation-only changes
 on:
+  # nightly (only runs on the default branch)
+  schedule:
+    - cron: "23 2 * * *"
   pull_request:
     branches: [hbc_downstream]
     types: [opened, synchronize, reopened, labeled]
