@@ -1810,11 +1810,11 @@ class No_En_Con(Node, ViNodes):
     ground_mode: EnumProperty(items=[("0", "Weather file", "Monthly ground temperatures from the weather file"),
                                      ("1", "Constant", "One constant ground temperature for the whole year"),
                                      ("2", "EnergyPlus default", "Write nothing; EnergyPlus uses a constant 18 degC")],
-                              name="", description="Temperature of the ground under ground-contact surfaces", default="0", update=nodeupdate)
+                              name="", description="Temperature of the ground under ground-contact surfaces", default="1", update=nodeupdate)
     ground_depth: EnumProperty(items=[("0.5", "0.5 m", "Ground temperatures at 0.5 m depth"), ("2", "2 m", "Ground temperatures at 2 m depth"),
                                       ("4", "4 m", "Ground temperatures at 4 m depth")],
                                name="", description="Depth of the weather file ground temperatures (nearest available depth is used)", default="2", update=nodeupdate)
-    ground_temp: FloatProperty(name="", description="Constant ground temperature (degC)", min=-20, max=40, default=10, update=nodeupdate)
+    ground_temp: FloatProperty(name="", description="Constant ground temperature (degC). EnergyPlus recommends about 2 K below the indoor temperature for ground under conditioned buildings", min=-20, max=40, default=18, update=nodeupdate)
     addonpath = os.path.dirname(inspect.getfile(inspect.currentframe()))
     matpath = addonpath + '/EPFiles/Materials/Materials.data'
     sdoy: IntProperty(name="", description="Start day of simulation", min=1, max=365, default=1, update=nodeupdate)
