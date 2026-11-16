@@ -5,6 +5,9 @@
 - Keeps only the wheels that can be installed on the chosen platform / Python 3.13
 - Downloads exactly these files from PyPI into the folders named in the manifest
 - Rewrites the manifest to platforms = ["<platform>"] and the filtered wheel list
+- Excludes the program folders of the other platforms from the zip
+  (EPFiles/<sys.platform>, RadFiles/..., OFFiles/..., Python/...; the add-on only
+  uses the folder of its own sys.platform)
 
 Because the files are fetched by their exact names, the run also checks that every
 wheel listed in the manifest really exists on PyPI.
@@ -24,6 +27,10 @@ import urllib.request
 from pathlib import Path
 
 PLATFORMS = ("macos-arm64", "linux-x64", "windows-x64")
+
+# Blender platform -> sys.platform, the folder name used below the program folders
+SYS_PLATFORM = {"macos-arm64": "darwin", "linux-x64": "linux", "windows-x64": "win32"}
+PROGRAM_DIRS = ("EPFiles", "RadFiles", "OFFiles", "Python")
 
 
 def wheel_tags(filename):
@@ -127,6 +134,16 @@ def main():
     text, n = re.subn(r"^platforms\s*=\s*\[[^\]]*\]", f'platforms = ["{args.platform}"]', text, count=1, flags=re.M)
     if n != 1:
         sys.exit("Could not find platforms = [...] in the manifest")
+
+    # Program folders of the other platforms are not needed in this zip
+    excludes = [f"/{d}/{plat}/" for d in PROGRAM_DIRS for plat in sorted(set(SYS_PLATFORM.values()))
+                if plat != SYS_PLATFORM[args.platform] and (root / d / plat).is_dir()]
+    m = re.search(r"^paths_exclude_pattern\s*=\s*\[(.*?)^\]", text, flags=re.S | re.M)
+    if not m:
+        sys.exit("Could not find paths_exclude_pattern = [...] in the manifest")
+    added = "".join(f'  "{e}",\n' for e in excludes)
+    text = text[:m.end(1)] + added + text[m.end(1):]
+    print("Excluded from the zip: " + ", ".join(excludes))
 
     tomllib.loads(text)
     manifest.write_text(text)

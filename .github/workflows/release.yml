@@ -1,12 +1,12 @@
 name: Release
 
-# Builds and tests the extension for all platforms (by calling the macOS, Linux
-# and Windows test workflows) and, for a version tag, publishes a GitHub release
+# Builds the extension for all platforms (Linux is built and tested by the Linux
+# test workflow, macOS and Windows are only built, on Ubuntu) and, for a version tag, publishes a GitHub release
 # with one zip per platform.
 #
-#   git tag v0.0.4 && git push origin v0.0.4
+#   git tag v0.0.5 && git push origin v0.0.5
 #
-# The tag must match `version` in blender_manifest.toml (v0.0.4 <-> "0.0.4").
+# The tag must match `version` in blender_manifest.toml (v0.0.5 <-> "0.0.5").
 # A manual start (Actions -> Release -> Run workflow) only builds and tests and
 # uploads the zips as workflow artifacts, without creating a release.
 
@@ -37,13 +37,6 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  macos:
-    needs: check-version
-    uses: ./.github/workflows/macos.yml
-    with:
-      blender_version: ${{ inputs.blender_version || '5.3.0' }}
-      upload_zip: true
-
   linux:
     needs: check-version
     uses: ./.github/workflows/linux.yml
@@ -51,16 +44,75 @@ jobs:
       blender_version: ${{ inputs.blender_version || '5.3.0' }}
       upload_zip: true
 
-  windows:
+  # macOS and Windows zips are only built here (on Ubuntu, because GitHub offers few
+  # macOS runners) and not tested: the build is just wheel download + `extension build`.
+  # The tests for these platforms are in the macOS/Windows test workflows (by hand or
+  # with the full-ci label).
+  build-cross:
+    name: ${{ matrix.platform }} build (not tested)
     needs: check-version
-    uses: ./.github/workflows/windows.yml
-    with:
-      blender_version: ${{ inputs.blender_version || '5.3.0' }}
-      upload_zip: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-arm64, windows-x64]
+    env:
+      BLENDER_VERSION: ${{ inputs.blender_version || '5.3.0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Cache Blender
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/blender.tar.xz
+          key: blender-${{ env.BLENDER_VERSION }}-linux-x64
+
+      - name: Download Blender
+        if: steps.cache-blender.outputs.cache-hit != 'true'
+        run: |
+          series="${BLENDER_VERSION%.*}"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/blender.tar.xz" \
+            "https://download.blender.org/release/Blender${series}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+
+      - name: Install Blender
+        run: |
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          echo "BLENDER=$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" >> "$GITHUB_ENV"
+
+      - name: Cache wheels
+        uses: actions/cache@v4
+        with:
+          path: |
+            wheels
+            ngsolve_wheels
+          key: wheels-${{ matrix.platform }}-${{ hashFiles('blender_manifest.toml') }}
+
+      - name: Prepare ${{ matrix.platform }} build (filter manifest, download wheels)
+        run: python build_scripts/ci_prepare_platform.py --platform ${{ matrix.platform }}
+
+      - name: Build extension
+        run: |
+          mkdir -p dist
+          "$BLENDER" --command extension build --source-dir . \
+            --output-filepath dist/vi-suite_HBC-${{ matrix.platform }}.zip
+          ls -lh dist
+
+      - name: Upload extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: vi-suite_HBC-${{ matrix.platform }}-extension
+          path: dist/*.zip
+          retention-days: 7
 
   release:
     if: github.ref_type == 'tag'
-    needs: [check-version, macos, linux, windows]
+    needs: [check-version, build-cross, linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -108,7 +160,7 @@ jobs:
           - \`linux-x64\`: x86_64 with glibc 2.34 or newer (e.g. Ubuntu 22.04, 24.04, 26.04)
 
           ## Tests
-          The three zips were built and tested in this release run with Blender ${TESTED_BLENDER} (add-on install, imports, EnVi simulation with EnergyPlus and LiVi simulation with Radiance on example models) on macOS (Apple Silicon, \`macos-latest\`), Windows (\`windows-latest\`) and Ubuntu 24.04 and 26.04 (the Linux zip is built on 24.04).
+          The three zips were built in this release run. The Linux zip was tested with Blender ${TESTED_BLENDER} (add-on install, imports, EnVi simulation with EnergyPlus and LiVi simulation with Radiance on example models) on Ubuntu 24.04 and 26.04 (built on 24.04). The macOS (Apple Silicon) and Windows zips were built on Ubuntu from the same sources but are not tested in the release run; they are tested separately with the "macOS test" and "Windows test" workflows.
           Older Blender versions down to the minimum version are tested with the "Blender versions" workflow.
           EOF
           sed -i 's/^          //' notes.md
