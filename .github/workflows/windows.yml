@@ -8,18 +8,12 @@ name: Windows test
 #
 # All steps run in Git Bash (shell: bash) so the commands match the macOS/Linux workflows.
 
-# Same triggers as the macOS test: pushes to hbc_downstream, PRs into it,
-# no runs for documentation-only changes, manual start.
+# Same triggers as the macOS test: releases, manual start, and PRs into
+# hbc_downstream with the label "full-ci" (no runs for documentation-only changes).
 on:
-  push:
-    branches: [hbc_downstream]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".gitignore"
-      - "Licenses/**"
   pull_request:
     branches: [hbc_downstream]
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -46,6 +40,11 @@ on:
 
 jobs:
   windows-x64:
+    # On PRs only with the "full-ci" label
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'full-ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
