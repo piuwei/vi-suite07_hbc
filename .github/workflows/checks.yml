@@ -16,3 +16,11 @@ jobs:
 
       - name: Line endings unchanged (see docs/development.md, "Zeilenenden")
         run: python3 build_scripts/check_line_endings.py "origin/${{ github.base_ref }}" HEAD
+
+  weather-files:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plausibility check of EPW files in EPFiles/Weather
+        run: python3 tests/check_weather_files.py
