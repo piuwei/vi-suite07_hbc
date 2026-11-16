@@ -106,6 +106,9 @@ def report_warnings(frame, err, limit=15):
             warnings.append(cur)
         elif cur is not None and s.startswith("**   ~~~   **"):
             cur.append(s[len("**   ~~~   **"):].strip())
+        elif cur is not None and s.startswith("************* Key="):
+            # variables listed after "Report Variables were requested but not generated"
+            cur.append(s[len("*************"):].strip())
         else:
             cur = None
     text = "\n".join(" | ".join(w) for w in warnings[:limit])
