@@ -13,7 +13,8 @@ Für Nutzer siehe [README.md](../README.md).
 
 | Workflow | Wann | Was |
 |---|---|---|
-| `macos.yml`, `linux.yml`, `windows.yml` | Pull Requests und Pushes auf `hbc_downstream` (nicht bei reinen Doku-Änderungen), manuell | Extension bauen, installieren, `tests/smoke_test.py` und `tests/envi_blend_test.py` mit der neuesten Blender-Version. Linux: Build auf Ubuntu 24.04, Test desselben Zips auf 24.04 und 26.04 |
+| `linux.yml` | Pull Requests und Pushes auf `hbc_downstream` (nicht bei reinen Doku-Änderungen), manuell, Release | Extension bauen, installieren, `tests/smoke_test.py` und `tests/envi_blend_test.py` mit der neuesten Blender-Version. Build auf Ubuntu 24.04, Test desselben Zips auf 24.04 und 26.04 |
+| `macos.yml`, `windows.yml` | Release, manuell, Pull Requests mit dem Label `full-ci` (Label setzen startet den Lauf, weitere Pushes auf den PR ebenfalls) | dieselben Tests wie Linux auf macOS (arm64) und Windows (x64) |
 | `blender-versions.yml` | manuell | dieselben Tests für eine Liste von Blender-Versionen |
 | `checks.yml` | Pull Requests | Zeilenenden (siehe unten) |
 | `release.yml` | Tag `v<version>`, manuell | alle Plattformen bauen und testen, GitHub-Release anlegen |
