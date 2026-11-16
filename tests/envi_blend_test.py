@@ -28,7 +28,7 @@ import addon_utils
 import bpy
 
 EXT_ID = "vi_suite_HBC"
-DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+STUTTGART_EPW = "DEU_BW_Stuttgart.AP.107380_TMYx.2011-2025.epw"
 results = []
 
 
@@ -67,11 +67,11 @@ def add_execute(modname, *class_names):
 
 
 def set_weather(modname, loc, weather):
-    """Point the location node to a weather file available on this machine."""
-    if os.path.isfile(loc.weather):
+    """Point the location node to the given weather file, replacing the one stored in the .blend."""
+    if os.path.isfile(loc.weather) and os.path.basename(loc.weather) == os.path.basename(weather):
         return record("weather file", True, loc.weather)
 
-    record("weather file from .blend not found, using copy", True, f"{loc.weather} -> {weather}", fatal=False)
+    record("weather file from .blend replaced", True, f"{loc.weather} -> {weather}", fatal=False)
     # The weather enum is stored as an index, so give the add-on a folder that
     # contains only the chosen file.
     wdir = tempfile.mkdtemp(prefix="vi_weather_")
@@ -108,7 +108,7 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", default="envi-report.json")
-    ap.add_argument("--weather", default="", help="EPW to use if the one in the .blend is not found")
+    ap.add_argument("--weather", default="", help="EPW to use instead of the bundled Stuttgart file")
     args = ap.parse_args(argv)
 
     record("blend file", bool(bpy.data.filepath), bpy.data.filepath)
@@ -133,11 +133,9 @@ def main():
         return
 
     addon_dir = os.path.dirname(sys.modules[modname].__file__)
-    # Weather file: --weather, else the file with the same name as in the .blend
-    # from tests/data, else a weather file bundled with the add-on.
-    same_name = os.path.join(DATA, os.path.basename(loc.weather.replace("\\", "/")))
-    weather = args.weather or (same_name if os.path.isfile(same_name) else
-                               os.path.join(addon_dir, "EPFiles", "Weather", "GBR_Birmingham.035340_IWEC.epw"))
+    # Weather file: --weather, else the Stuttgart file bundled with the add-on
+    # (replaces the Laupheim file stored in the .blend).
+    weather = args.weather or os.path.join(addon_dir, "EPFiles", "Weather", STUTTGART_EPW)
     if not set_weather(modname, loc, os.path.abspath(weather)):
         return
 
