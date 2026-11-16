@@ -5599,7 +5599,8 @@ class No_En_Net_Hvac(Node, EnViNodes):
         paramvs = ('{}_Air'.format(zn), zn + '_hvacsched', '{}_supairnode'.format(zn), '', '', self.envi_hvacht, self.envi_hvacct, 0.015, 0.009, self['limittype'][self.envi_hvachlt],
                    '{:.4f}'.format(self.envi_hvachaf) if self.envi_hvachlt in ('0', '2') else '', self.envi_hvacshc if self.envi_hvachlt in ('1', '2') else '', self['limittype'][self.envi_hvacclt],
                    '{:.4f}'.format(self.envi_hvaccaf) if self.envi_hvacclt in ('0', '2') else '', self.envi_hvacscc if self.envi_hvacclt in ('1', '2') else '',
-                   '', '', 'ConstantSupplyHumidityRatio', '', 'ConstantSupplyHumidityRatio', (zn + ' Outdoor Air', '')[self.envi_hvacoam == '0'], '', '', '', ('None', 'Sensible')[int(self.envi_hvachr)], '{:.2f}'.format(self.envi_hvachre), '')
+                   '', '', 'ConstantSupplyHumidityRatio', '', 'ConstantSupplyHumidityRatio', (zn + ' Outdoor Air', '')[self.envi_hvacoam == '0'],
+                   ('{}_oainnode'.format(zn), '')[self.envi_hvacoam == '0'], '', '', ('None', 'Sensible')[int(self.envi_hvachr)], '{:.2f}'.format(self.envi_hvachre), '')
         entry = epentry('ZoneHVAC:IdealLoadsAirSystem', params, paramvs)
 
         if self.envi_hvacoam != '0':
@@ -5610,6 +5611,7 @@ class No_En_Net_Hvac(Node, EnViNodes):
                         '{:.4f}'.format(self.envi_hvacfrzfa) if self.envi_hvacoam in ('3', '4', '5') else '', '{:.4f}'.format(self.envi_hvacfrz) if self.envi_hvacoam in ('1', '4', '5') else '',
                         '{:.4f}'.format(self.envi_hvacfach) if self.envi_hvacoam in ('4', '5', '6') else '', '')
             entry += epentry('DesignSpecification:OutdoorAir', params2, paramvs2)
+            entry += epentry('OutdoorAir:NodeList', ['Node or NodeList Name 1'], ['{}_oainnode'.format(zn)])
         return entry
 
     def hvactwrite(self, zn):
