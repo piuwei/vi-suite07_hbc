@@ -31,3 +31,7 @@ Requirements:
 
 - Development notes (tests, release, TODO list): [docs/development.md](docs/development.md)
 - Building the extension: [docs/build_guide.md](docs/build_guide.md)
+
+[![macOS test](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/macos.yml/badge.svg)](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/macos.yml)
+[![Windows test](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/windows.yml/badge.svg)](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/windows.yml)
+[![Linux test](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/linux.yml/badge.svg)](https://github.com/piuwei/vi-suite07_hbc/actions/workflows/linux.yml)
