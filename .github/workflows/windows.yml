@@ -8,12 +8,12 @@ name: Windows test
 #
 # All steps run in Git Bash (shell: bash) so the commands match the macOS/Linux workflows.
 
-# Same triggers as the macOS test: nightly (02:43 UTC), releases, manual start, and PRs into
+# Same triggers as the macOS test: weekly (Sunday 02:43 UTC), releases, manual start, and PRs into
 # hbc_downstream with the label "full-ci" (no runs for documentation-only changes).
 on:
-  # nightly (only runs on the default branch)
+  # weekly on Sunday (only runs on the default branch)
   schedule:
-    - cron: "43 2 * * *"
+    - cron: "43 2 * * 0"
   pull_request:
     branches: [hbc_downstream]
     types: [opened, synchronize, reopened, labeled]
