@@ -8,13 +8,15 @@ name: macOS test
 #   - tests/livi_blend_test.py LiVi export + Radiance run with tests/data/simple_cube_livi.blend
 
 # Runs only when needed (Linux covers every PR):
-# - nightly at 02:23 UTC (default branch, newest Blender)
+# - nightly at 02:23 UTC if the code changed since the last successful nightly run
+#   (default branch, newest Blender)
 # - releases (called by release.yml) and blender-versions.yml
 # - by hand (Actions -> macOS test -> Run workflow), optionally uploading the extension zip
 # - on PRs into hbc_downstream that carry the label "full-ci" (adding the label starts
 #   it, later pushes to the PR run it again); skips documentation-only changes
 on:
-  # nightly (only runs on the default branch)
+  # nightly, but only if something changed since the last successful nightly run
+  # (job "changes"; schedules only run on the default branch)
   schedule:
     - cron: "23 2 * * *"
   pull_request:
@@ -45,12 +47,32 @@ on:
         default: false
 
 jobs:
+  # Scheduled runs only: skip the tests if nothing relevant changed since the last
+  # successful scheduled run. Skipped for all other events.
+  changes:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Changed since the last successful nightly run?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash build_scripts/ci_changed_since_last_run.sh macos.yml
+
   macos-arm64:
-    # On PRs only with the "full-ci" label
+    needs: changes
+    # Scheduled: only after changes. On PRs only with the "full-ci" label.
     if: >-
-      github.event_name != 'pull_request' ||
+      !cancelled() &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.run == 'true') &&
+      (github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'full-ci') ||
-      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'full-ci')))
     runs-on: macos-latest   # Apple Silicon
     timeout-minutes: 60
     env:
