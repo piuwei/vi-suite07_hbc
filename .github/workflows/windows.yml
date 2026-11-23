@@ -8,12 +8,13 @@ name: Windows test
 #
 # All steps run in Git Bash (shell: bash) so the commands match the macOS/Linux workflows.
 
-# Same triggers as the macOS test: weekly (Sunday 02:43 UTC), releases, manual start, and PRs into
+# Same triggers as the macOS test: nightly (02:43 UTC, only after changes), releases, manual start, and PRs into
 # hbc_downstream with the label "full-ci" (no runs for documentation-only changes).
 on:
-  # weekly on Sunday (only runs on the default branch)
+  # nightly, but only if something changed since the last successful nightly run
+  # (job "changes"; schedules only run on the default branch)
   schedule:
-    - cron: "43 2 * * 0"
+    - cron: "43 2 * * *"
   pull_request:
     branches: [hbc_downstream]
     types: [opened, synchronize, reopened, labeled]
@@ -42,12 +43,32 @@ on:
         default: false
 
 jobs:
+  # Scheduled runs only: skip the tests if nothing relevant changed since the last
+  # successful scheduled run. Skipped for all other events.
+  changes:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Changed since the last successful nightly run?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash build_scripts/ci_changed_since_last_run.sh windows.yml
+
   windows-x64:
-    # On PRs only with the "full-ci" label
+    needs: changes
+    # Scheduled: only after changes. On PRs only with the "full-ci" label.
     if: >-
-      github.event_name != 'pull_request' ||
+      !cancelled() &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.run == 'true') &&
+      (github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'full-ci') ||
-      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'full-ci')))
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
